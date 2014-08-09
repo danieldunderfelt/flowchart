@@ -1,0 +1,109 @@
+@mixin clear {
+	&:before,
+	&:after {
+	    content: " ";
+	    display: table;
+	}
+
+	&:after {
+	    clear: both;
+	}
+
+	*zoom: 1;
+}
+
+@mixin icon($name, $pseudo: before) {
+	&:#{$pseudo} {
+		@extend .icon;
+		@extend .icon-#{$name}:before;
+		@content;
+	}
+}
+
+@mixin triangle($dir, $color, $pseudo: before, $width: 20px, $height: 20px) {
+	&:#{$pseudo} {
+		content: "";
+		width: 0;
+		height: 0;
+		border-style: solid;
+
+		@if($dir == up) {
+			border-width: 0 ($width / 2) $height ($width / 2);
+			border-color: transparent transparent $color transparent;
+		}
+		@if($dir == left) {
+			border-width: ($height / 2) $width ($height / 2) 0;
+			border-color: transparent $color transparent transparent;
+		}
+		@if($dir == right) {
+			border-width: ($height / 2) 0 ($height / 2) $width;
+			border-color: transparent transparent transparent $color;
+		}
+		@if($dir == down) {
+			border-width: $height ($width / 2) 0 ($width / 2);
+			border-color: transparent transparent transparent $color;
+		}
+
+		@content;
+	}
+}
+
+@mixin simple-triangle($dir, $color, $width: 20px, $height: 20px) {
+	width: 0;
+	height: 0;
+	border-style: solid;
+
+	@if($dir == up) {
+		border-width: 0 ($width / 2) $height ($width / 2);
+		border-color: transparent transparent $color transparent;
+	}
+	@if($dir == left) {
+		border-width: ($height / 2) $width ($height / 2) 0;
+		border-color: transparent $color transparent transparent;
+	}
+	@if($dir == right) {
+		border-width: ($height / 2) 0 ($height / 2) $width;
+		border-color: transparent transparent transparent $color;
+	}
+	@if($dir == down) {
+		border-width: $height ($width / 2) 0 ($width / 2);
+		border-color: $color transparent transparent transparent ;
+	}
+
+	@content;
+}
+
+@mixin box-sizing($box-model) {
+  -webkit-box-sizing: $box-model; // Safari <= 5
+     -moz-box-sizing: $box-model; // Firefox <= 19
+          box-sizing: $box-model;
+}
+
+@mixin r($value, $operator: "min-width", $query: 'screen') {
+	@media #{$query} and (#{$operator}: #{$value}) {
+		@content;
+	}
+}
+
+@mixin bp($bp) {
+	@if $bp == desktop {
+		@include r($bp-desktop) {
+			@content;
+		}
+	}
+	@if $bp == laptop {
+		@include r($bp-laptop) {
+			@content;
+		}
+	}
+	@if $bp == tablet {
+		@include r($bp-tablet) {
+			@content;
+		}
+	}
+	@if $bp == mobile {
+		@include r($bp-mobile, "max-width") {
+			@content;
+		}
+	}
+}

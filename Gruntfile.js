@@ -35,14 +35,15 @@ module.exports = function(grunt) {
     sass: {
       dist: {
         files: {
-          'css/text.css': ['scss/text.scss'],
+          'src/css/flowchart.css': ['src/scss/flowchart.scss'],
         }
       }
     },
-    autoprefixer : {
+    autoprefixer: {
       dist: {
-        src: 'css/text.css',
-        dest: 'dist/css/text.css'
+        files: {
+          'dist/css/flowchart.css': 'src/css/flowchart.css'
+        }
       }
     },
     connect: {
@@ -57,12 +58,15 @@ module.exports = function(grunt) {
     },
     watch: {
       scss: {
-        files: 'scss/**/*.scss',
+        files: 'src/scss/**/*.scss',
         tasks: ['sass']
       },
       css: {
-        files: 'css/*.css',
-        tasks: ['autoprefixer']
+        files: 'src/css/*.css',
+        tasks: ['autoprefixer'],
+        options: {
+          livereload: true
+        }
       },
       js: {
         files: ['src/js/**/*.js'],
@@ -70,11 +74,7 @@ module.exports = function(grunt) {
       },
       gruntfile: {
         files: "Gruntfile.js"
-      },
-      options: {
-        livereload: true
       }
-
     }
   });
 
