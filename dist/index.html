@@ -5,7 +5,6 @@
 	<title>Flowchart</title>
 	<link rel="stylesheet" href="css/flowchart.css">
 	<script src="js/lib/traceur-runtime.js"></script>
-	<script src="js/lib/kinetic-v5.1.1.min.js"></script>
 	<script>
 		var $traceurRuntime = require('traceur-runtime');
 	</script>
@@ -15,7 +14,7 @@
 	<h1>
 		Build your flowchart, organize your thoughts.
 	</h1>
-	<nav>
+	<nav class="toolbar">
 		<ul id="components">
 			<li data-component="square" draggable="true">
 				A square
@@ -23,13 +22,11 @@
 			<li data-component="circle" draggable="true">
 				A circle
 			</li>
+			<li data-component="triangle" draggable="true">
+				A triangle
+			</li>
 			<li data-component="text" draggable="true">
 				A textfield
-			</li>
-		</ul>
-		<ul id="tools">
-			<li data-tool="color">
-				Color
 			</li>
 		</ul>
 	</nav>

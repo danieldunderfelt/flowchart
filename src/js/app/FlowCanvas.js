@@ -8,12 +8,15 @@ class FlowCanvas {
 	constructor() {
 		helpers.stage = new Kinetic.Stage({
 			container: 'flowchart',
-			width: 1000,
-			height: 800
+			width: 1400,
+			height: 900
 		});
 
-		this.layer = new Kinetic.Layer();
-		helpers.stage.add(this.layer);
+		helpers.layer = new Kinetic.Layer({
+			id: "mainLayer"
+		});
+
+		helpers.stage.add(helpers.layer);
 	}
 
 	init() {
@@ -21,20 +24,20 @@ class FlowCanvas {
 	}
 
 	startListeners() {
-		var canvasEle = document.querySelector("#flowchart canvas");
+		var canvasCnt = document.querySelector("#flowchart");
 
-		canvasEle.addEventListener('dragover', function(e) {
+		canvasCnt.addEventListener('dragover', function(e) {
 			e.preventDefault();
 			e.dataTransfer.dropEffect = 'copy';
 		});
 
-		canvasEle.addEventListener('drop', this.componentDrop.bind(this));
+		canvasCnt.addEventListener('drop', this.componentDrop.bind(this));
 	}
 
 	componentDrop(e) {
 		e.stopPropagation();
 		var newNode = new SquareNode();
-		newNode.addTo(this.layer, helpers.getMousePos(e));
+		newNode.addTo(helpers.layer, helpers.getMousePos(e));
 	}
 }
 

@@ -15,6 +15,7 @@ class SquareNode extends CanvasItem {
 	constructor(type) {
 		this.nodeConfig = squareNodeConfig;
 		this.nodeType = 'Rect';
+
 		super();
 	}
 }
