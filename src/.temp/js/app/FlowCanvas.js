@@ -10,7 +10,8 @@ var FlowCanvas = function FlowCanvas() {
   });
   helpers.layer = new Kinetic.Layer({id: "mainLayer"});
   helpers.connectionLayer = new Kinetic.Layer({id: "connectionLayer"});
-  helpers.stage.add(helpers.layer).add(helpers.connectionLayer);
+  helpers.stage.add(helpers.layer);
+  helpers.stage.add(helpers.connectionLayer);
   helpers.connectionLayer.moveToBottom();
 };
 ($traceurRuntime.createClass)(FlowCanvas, {

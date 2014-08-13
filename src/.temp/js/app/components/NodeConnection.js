@@ -1,5 +1,4 @@
 "use strict";
-var connections = require('../connections');
 var helpers = require('../Helpers');
 var NodeConnection = function NodeConnection(node1, node2, cb) {
   this.connectFrom = node1;
@@ -13,7 +12,6 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
     var self = this;
     var indPos = this.connectTo.getAbsolutePosition();
     var targetShape = this.connectTo.find(".nodeShape");
-    console.log(targetShape[0].width());
     this.indicator = new Kinetic.Circle({
       width: 100,
       heigth: 100,
@@ -24,9 +22,9 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
       y: (indPos.y + (targetShape[0].height() / 2)),
       fill: '#ff0000'
     });
-    helpers.layer.add(this.indicator);
+    helpers.connectionLayer.add(this.indicator);
     this.indicator.moveToBottom();
-    helpers.layer.draw();
+    helpers.connectionLayer.draw();
     this.anim = new Kinetic.Tween({
       node: this.indicator,
       duration: 1,
@@ -43,19 +41,25 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
       this.anim.reset();
     if (this.indicator !== null)
       this.indicator.destroy();
-    helpers.layer.draw();
+    helpers.connectionLayer.draw();
   },
   connect: function() {
     console.log("connecting nodes...");
+    this.indicator.destroy();
     this.line = new Kinetic.Line({
       points: this.buildLinePoints(),
       stroke: "black",
-      strokeWidth: 1
+      strokeWidth: 1,
+      lineCap: 'round',
+      lineJoin: 'round'
     });
     helpers.connectionLayer.add(this.line);
-    helpers.connectionLayer.draw();
-    this.setListeners();
-    this.callback();
+    helpers.stage.draw();
+    helpers.controllers[$traceurRuntime.toProperty(this.connectTo.id().split("-")[1])].connections.push(this);
+    this.callback(this);
+  },
+  updateConnection: function() {
+    this.line.setAttr("points", this.buildLinePoints());
   },
   buildLinePoints: function() {
     var n1Shape = this.connectFrom.find(".nodeShape")[0];

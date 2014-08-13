@@ -1,4 +1,3 @@
-var connections = require('../connections');
 var helpers = require('../Helpers');
 
 class NodeConnection {
@@ -16,7 +15,6 @@ class NodeConnection {
 		var self = this;
 		var indPos = this.connectTo.getAbsolutePosition();
 		var targetShape = this.connectTo.find(".nodeShape");
-		console.log(targetShape[0].width());
 
 		this.indicator = new Kinetic.Circle({
 			width: 100,
@@ -29,9 +27,9 @@ class NodeConnection {
 			fill: '#ff0000'
 		});
 
-		helpers.layer.add(this.indicator);
+		helpers.connectionLayer.add(this.indicator);
 		this.indicator.moveToBottom();
-		helpers.layer.draw();
+		helpers.connectionLayer.draw();
 
 		this.anim = new Kinetic.Tween({
 			node: this.indicator,
@@ -49,28 +47,31 @@ class NodeConnection {
 		console.log("connection canceled...");
 		if(this.anim !== null) this.anim.reset();
 		if(this.indicator !== null) this.indicator.destroy();
-		helpers.layer.draw();
+		helpers.connectionLayer.draw();
 	}
 
 	connect() {
 		console.log("connecting nodes...");
 
+		this.indicator.destroy();
+
 		this.line = new Kinetic.Line({
 			points: this.buildLinePoints(),
 			stroke: "black",
-			strokeWidth: 1
+			strokeWidth: 1,
+			lineCap: 'round',
+			lineJoin: 'round'
 		});
 
 		helpers.connectionLayer.add(this.line);
-		helpers.connectionLayer.draw();
+		helpers.stage.draw();
 
-		this.setListeners()
-
-		this.callback();
+		helpers.controllers[this.connectTo.id().split("-")[1]].connections.push(this);
+		this.callback(this);
 	}
 
-	setListeners() {
-
+	updateConnection() {
+		this.line.setAttr("points", this.buildLinePoints());
 	}
 
 	buildLinePoints() {

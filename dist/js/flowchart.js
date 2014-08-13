@@ -21591,7 +21591,8 @@ var FlowCanvas = function FlowCanvas() {
   });
   helpers.layer = new Kinetic.Layer({id: "mainLayer"});
   helpers.connectionLayer = new Kinetic.Layer({id: "connectionLayer"});
-  helpers.stage.add(helpers.layer).add(helpers.connectionLayer);
+  helpers.stage.add(helpers.layer);
+  helpers.stage.add(helpers.connectionLayer);
   helpers.connectionLayer.moveToBottom();
 };
 ($traceurRuntime.createClass)(FlowCanvas, {
@@ -21626,6 +21627,7 @@ var Helpers = {
   tempLayer: {},
   connectionLayer: {},
   itemsOnCanvas: [],
+  controllers: {},
   getMousePos: function(e) {
     var rect = document.querySelector("#flowchart").getBoundingClientRect();
     return {
@@ -21727,8 +21729,6 @@ var groupConfig = {draggable: true};
 var startZIndex = 0;
 var startPos = {};
 var isDragging = false;
-var intersectionFound = false;
-var connectionInProgress = false;
 var CanvasItem = function CanvasItem() {
   this.groupId = Date.now();
   this.itemGroup = new Kinetic.Group(groupConfig);
@@ -21750,9 +21750,12 @@ var CanvasItem = function CanvasItem() {
   this.itemGroup.add(this.item);
   this.itemGroup.add(this.text.textElement);
   helpers.itemsOnCanvas.push(this.itemGroup);
+  $traceurRuntime.setProperty(helpers.controllers, this.groupId, this);
   this.itemGroup.on('dragstart', this.dragStart.bind(this));
   this.itemGroup.on('dragend', this.dragEnd.bind(this));
   this.itemGroup.on('dragmove', this.dragMove.bind(this));
+  this.intersectionFound = false;
+  this.connections = [];
 };
 ($traceurRuntime.createClass)(CanvasItem, {
   addTo: function(layer, pos) {
@@ -21766,28 +21769,36 @@ var CanvasItem = function CanvasItem() {
     this.highlight();
   },
   dragMove: function(e) {
+    if (this.connections.length > 0)
+      this.updateConnections();
     var pos = helpers.stage.getPointerPosition();
     var intersecting = helpers.dragOver(pos, this.itemGroup.id());
-    if (!intersectionFound && intersecting !== false) {
-      intersectionFound = true;
+    if (!this.intersectionFound && intersecting !== false) {
+      this.intersectionFound = true;
       if (intersecting.id() !== e.target.id()) {
         this.connectTo(intersecting);
       }
-    } else if (connectionInProgress && intersecting === false) {
-      connectionInProgress.cancel();
+    } else if (this.intersectionFound && intersecting === false) {
+      this.intersectionFound = false;
     }
   },
   dragEnd: function(e) {
     e.target.setZIndex(startZIndex);
     this.removeHighlight();
   },
+  updateConnections: function() {
+    for (var con = 0; con < this.connections.length; con++) {
+      this.connections[$traceurRuntime.toProperty(con)].updateConnection();
+    }
+    helpers.connectionLayer.batchDraw();
+  },
   connectTo: function(node) {
-    connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
+    var connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
     connectionInProgress.start();
   },
-  afterConnect: function() {
-    connectionInProgress = false;
-    intersectionFound = false;
+  afterConnect: function(connection) {
+    this.connections.push(connection);
+    this.intersectionFound = false;
     var returnAnim = new Kinetic.Tween({
       x: startPos.x,
       y: startPos.y,
@@ -21840,7 +21851,6 @@ module.exports = FlowLine;
 
 },{"./CanvasItem":13}],16:[function(require,module,exports){
 "use strict";
-var connections = require('../connections');
 var helpers = require('../Helpers');
 var NodeConnection = function NodeConnection(node1, node2, cb) {
   this.connectFrom = node1;
@@ -21854,7 +21864,6 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
     var self = this;
     var indPos = this.connectTo.getAbsolutePosition();
     var targetShape = this.connectTo.find(".nodeShape");
-    console.log(targetShape[0].width());
     this.indicator = new Kinetic.Circle({
       width: 100,
       heigth: 100,
@@ -21865,9 +21874,9 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
       y: (indPos.y + (targetShape[0].height() / 2)),
       fill: '#ff0000'
     });
-    helpers.layer.add(this.indicator);
+    helpers.connectionLayer.add(this.indicator);
     this.indicator.moveToBottom();
-    helpers.layer.draw();
+    helpers.connectionLayer.draw();
     this.anim = new Kinetic.Tween({
       node: this.indicator,
       duration: 1,
@@ -21884,19 +21893,25 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
       this.anim.reset();
     if (this.indicator !== null)
       this.indicator.destroy();
-    helpers.layer.draw();
+    helpers.connectionLayer.draw();
   },
   connect: function() {
     console.log("connecting nodes...");
+    this.indicator.destroy();
     this.line = new Kinetic.Line({
       points: this.buildLinePoints(),
       stroke: "black",
-      strokeWidth: 1
+      strokeWidth: 1,
+      lineCap: 'round',
+      lineJoin: 'round'
     });
     helpers.connectionLayer.add(this.line);
-    helpers.connectionLayer.draw();
-    this.setListeners();
-    this.callback();
+    helpers.stage.draw();
+    helpers.controllers[$traceurRuntime.toProperty(this.connectTo.id().split("-")[1])].connections.push(this);
+    this.callback(this);
+  },
+  updateConnection: function() {
+    this.line.setAttr("points", this.buildLinePoints());
   },
   buildLinePoints: function() {
     var n1Shape = this.connectFrom.find(".nodeShape")[0];
@@ -21912,7 +21927,7 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
 }, {});
 module.exports = NodeConnection;
 
-},{"../Helpers":9,"../connections":20}],17:[function(require,module,exports){
+},{"../Helpers":9}],17:[function(require,module,exports){
 "use strict";
 var helpers = require('../Helpers');
 var textConfig = {

@@ -9,6 +9,8 @@ var Helpers = {
 
 	itemsOnCanvas: [],
 
+	controllers: {},
+
 	getMousePos: function(e) {
 		var rect = document.querySelector("#flowchart").getBoundingClientRect();
 

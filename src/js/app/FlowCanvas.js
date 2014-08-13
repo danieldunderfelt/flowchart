@@ -20,8 +20,8 @@ class FlowCanvas {
 			id: "connectionLayer"
 		});
 
-		helpers.stage.add(helpers.layer)
-			.add(helpers.connectionLayer);
+		helpers.stage.add(helpers.layer);
+		helpers.stage.add(helpers.connectionLayer);
 
 		helpers.connectionLayer.moveToBottom();
 	}
