@@ -5,6 +5,7 @@ var Helpers = {
 	stage: {},
 	layer: {},
 	tempLayer: {},
+	connectionLayer: {},
 
 	itemsOnCanvas: [],
 
@@ -15,6 +16,16 @@ var Helpers = {
 			x: e.clientX - rect.left,
 			y: e.clientY - rect.top
 		};
+	},
+
+	removeFromIndex: function(item) {
+		for(var i = 0; i < this.itemsOnCanvas.length; i++) {
+			var extItem = this.itemsOnCanvas[i];
+			if(extItem.id() === item.id()) {
+				this.itemsOnCanvas.splice(i, 1);
+				return;
+			}
+		}
 	},
 
 	dragOver: function(pos, excludeId) {

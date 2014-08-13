@@ -16,7 +16,14 @@ class FlowCanvas {
 			id: "mainLayer"
 		});
 
-		helpers.stage.add(helpers.layer);
+		helpers.connectionLayer = new Kinetic.Layer({
+			id: "connectionLayer"
+		});
+
+		helpers.stage.add(helpers.layer)
+			.add(helpers.connectionLayer);
+
+		helpers.connectionLayer.moveToBottom();
 	}
 
 	init() {

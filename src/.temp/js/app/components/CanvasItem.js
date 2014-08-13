@@ -2,10 +2,13 @@
 var NodeText = require('./NodeText');
 var NodeConnection = require('./NodeConnection');
 var helpers = require('../Helpers');
+var CanvasItemUtil = require('../CanvasItemUtil');
 var groupConfig = {draggable: true};
 var startZIndex = 0;
 var startPos = {};
 var isDragging = false;
+var intersectionFound = false;
+var connectionInProgress = false;
 var CanvasItem = function CanvasItem() {
   this.groupId = Date.now();
   this.itemGroup = new Kinetic.Group(groupConfig);
@@ -36,14 +39,6 @@ var CanvasItem = function CanvasItem() {
     this.setPos(pos);
     this.add(layer);
   },
-  add: function(layer) {
-    layer.add(this.itemGroup);
-    layer.draw();
-  },
-  setPos: function(pos) {
-    this.itemGroup.x(pos.x - (this.item.width() / 2));
-    this.itemGroup.y(pos.y - (this.item.height() / 2));
-  },
   dragStart: function(e) {
     startZIndex = e.target.getZIndex();
     startPos = e.target.getAbsolutePosition();
@@ -53,12 +48,13 @@ var CanvasItem = function CanvasItem() {
   dragMove: function(e) {
     var pos = helpers.stage.getPointerPosition();
     var intersecting = helpers.dragOver(pos, this.itemGroup.id());
-    console.log(intersecting);
-    if (intersecting) {
-      var overEle = intersecting.getParent();
-      if (overEle.id() !== e.target.id()) {
-        this.connectTo(overEle);
+    if (!intersectionFound && intersecting !== false) {
+      intersectionFound = true;
+      if (intersecting.id() !== e.target.id()) {
+        this.connectTo(intersecting);
       }
+    } else if (connectionInProgress && intersecting === false) {
+      connectionInProgress.cancel();
     }
   },
   dragEnd: function(e) {
@@ -66,10 +62,12 @@ var CanvasItem = function CanvasItem() {
     this.removeHighlight();
   },
   connectTo: function(node) {
-    var connection = new NodeConnection(this.itemGroup, node);
-    this.afterConnect();
+    connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
+    connectionInProgress.start();
   },
   afterConnect: function() {
+    connectionInProgress = false;
+    intersectionFound = false;
     var returnAnim = new Kinetic.Tween({
       x: startPos.x,
       y: startPos.y,
@@ -79,22 +77,9 @@ var CanvasItem = function CanvasItem() {
     });
     returnAnim.play();
   },
-  highlight: function() {
-    this.item.setAttrs({
-      shadowOpacity: 0.5,
-      shadowBlur: 20
-    });
-    helpers.layer.draw();
-  },
-  removeHighlight: function() {
-    this.item.setAttrs({
-      shadowOpacity: 0.3,
-      shadowBlur: 5
-    });
-    helpers.layer.draw();
-  },
   remove: function() {
+    helpers.removeFromIndex(this.itemGroup);
     this.itemGroup.destroy();
   }
-}, {});
+}, {}, CanvasItemUtil);
 module.exports = CanvasItem;

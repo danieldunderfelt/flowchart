@@ -21542,13 +21542,43 @@ var Application = function Application() {
   }}, {});
 module.exports = Application;
 
-},{"./FlowCanvas":6,"./View":11}],5:[function(require,module,exports){
+},{"./FlowCanvas":7,"./View":12}],5:[function(require,module,exports){
+"use strict";
+var helpers = require('./Helpers');
+var CanvasItemUtil = function CanvasItemUtil() {};
+($traceurRuntime.createClass)(CanvasItemUtil, {
+  setPos: function(pos) {
+    this.itemGroup.x(pos.x - (this.item.width() / 2));
+    this.itemGroup.y(pos.y - (this.item.height() / 2));
+  },
+  highlight: function() {
+    this.item.setAttrs({
+      shadowOpacity: 0.5,
+      shadowBlur: 20
+    });
+    helpers.layer.draw();
+  },
+  removeHighlight: function() {
+    this.item.setAttrs({
+      shadowOpacity: 0.3,
+      shadowBlur: 5
+    });
+    helpers.layer.draw();
+  },
+  add: function(layer) {
+    layer.add(this.itemGroup);
+    layer.draw();
+  }
+}, {});
+module.exports = CanvasItemUtil;
+
+},{"./Helpers":9}],6:[function(require,module,exports){
 "use strict";
 var Flow = function Flow() {};
 ($traceurRuntime.createClass)(Flow, {}, {});
 module.exports = Flow;
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 "use strict";
 var SquareNode = require('./components/SquareNode');
 var helpers = require('./Helpers');
@@ -21560,7 +21590,9 @@ var FlowCanvas = function FlowCanvas() {
     height: 900
   });
   helpers.layer = new Kinetic.Layer({id: "mainLayer"});
-  helpers.stage.add(helpers.layer);
+  helpers.connectionLayer = new Kinetic.Layer({id: "connectionLayer"});
+  helpers.stage.add(helpers.layer).add(helpers.connectionLayer);
+  helpers.connectionLayer.moveToBottom();
 };
 ($traceurRuntime.createClass)(FlowCanvas, {
   init: function() {
@@ -21582,16 +21614,17 @@ var FlowCanvas = function FlowCanvas() {
 }, {});
 module.exports = FlowCanvas;
 
-},{"./Helpers":8,"./components/SquareNode":18,"lodash":3}],7:[function(require,module,exports){
+},{"./Helpers":9,"./components/SquareNode":19,"lodash":3}],8:[function(require,module,exports){
 "use strict";
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 "use strict";
 var _ = require('lodash');
 var Helpers = {
   stage: {},
   layer: {},
   tempLayer: {},
+  connectionLayer: {},
   itemsOnCanvas: [],
   getMousePos: function(e) {
     var rect = document.querySelector("#flowchart").getBoundingClientRect();
@@ -21599,6 +21632,15 @@ var Helpers = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top
     };
+  },
+  removeFromIndex: function(item) {
+    for (var i = 0; i < this.itemsOnCanvas.length; i++) {
+      var extItem = this.itemsOnCanvas[$traceurRuntime.toProperty(i)];
+      if (extItem.id() === item.id()) {
+        this.itemsOnCanvas.splice(i, 1);
+        return;
+      }
+    }
   },
   dragOver: function(pos, excludeId) {
     var matchingNode = false;
@@ -21647,16 +21689,16 @@ var Helpers = {
 };
 module.exports = Helpers;
 
-},{"lodash":3}],9:[function(require,module,exports){
+},{"lodash":3}],10:[function(require,module,exports){
 "use strict";
 var connections = [];
 var NodeConnection = function NodeConnection() {};
 ($traceurRuntime.createClass)(NodeConnection, {connect: function(node1, node2) {}}, {});
 module.exports = NodeConnection;
 
-},{}],10:[function(require,module,exports){
-module.exports=require(9)
 },{}],11:[function(require,module,exports){
+module.exports=require(10)
+},{}],12:[function(require,module,exports){
 "use strict";
 var View = function View() {};
 ($traceurRuntime.createClass)(View, {
@@ -21675,15 +21717,18 @@ var View = function View() {};
 }, {});
 module.exports = View;
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 "use strict";
 var NodeText = require('./NodeText');
 var NodeConnection = require('./NodeConnection');
 var helpers = require('../Helpers');
+var CanvasItemUtil = require('../CanvasItemUtil');
 var groupConfig = {draggable: true};
 var startZIndex = 0;
 var startPos = {};
 var isDragging = false;
+var intersectionFound = false;
+var connectionInProgress = false;
 var CanvasItem = function CanvasItem() {
   this.groupId = Date.now();
   this.itemGroup = new Kinetic.Group(groupConfig);
@@ -21714,14 +21759,6 @@ var CanvasItem = function CanvasItem() {
     this.setPos(pos);
     this.add(layer);
   },
-  add: function(layer) {
-    layer.add(this.itemGroup);
-    layer.draw();
-  },
-  setPos: function(pos) {
-    this.itemGroup.x(pos.x - (this.item.width() / 2));
-    this.itemGroup.y(pos.y - (this.item.height() / 2));
-  },
   dragStart: function(e) {
     startZIndex = e.target.getZIndex();
     startPos = e.target.getAbsolutePosition();
@@ -21731,12 +21768,13 @@ var CanvasItem = function CanvasItem() {
   dragMove: function(e) {
     var pos = helpers.stage.getPointerPosition();
     var intersecting = helpers.dragOver(pos, this.itemGroup.id());
-    console.log(intersecting);
-    if (intersecting) {
-      var overEle = intersecting.getParent();
-      if (overEle.id() !== e.target.id()) {
-        this.connectTo(overEle);
+    if (!intersectionFound && intersecting !== false) {
+      intersectionFound = true;
+      if (intersecting.id() !== e.target.id()) {
+        this.connectTo(intersecting);
       }
+    } else if (connectionInProgress && intersecting === false) {
+      connectionInProgress.cancel();
     }
   },
   dragEnd: function(e) {
@@ -21744,10 +21782,12 @@ var CanvasItem = function CanvasItem() {
     this.removeHighlight();
   },
   connectTo: function(node) {
-    var connection = new NodeConnection(this.itemGroup, node);
-    this.afterConnect();
+    connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
+    connectionInProgress.start();
   },
   afterConnect: function() {
+    connectionInProgress = false;
+    intersectionFound = false;
     var returnAnim = new Kinetic.Tween({
       x: startPos.x,
       y: startPos.y,
@@ -21757,27 +21797,14 @@ var CanvasItem = function CanvasItem() {
     });
     returnAnim.play();
   },
-  highlight: function() {
-    this.item.setAttrs({
-      shadowOpacity: 0.5,
-      shadowBlur: 20
-    });
-    helpers.layer.draw();
-  },
-  removeHighlight: function() {
-    this.item.setAttrs({
-      shadowOpacity: 0.3,
-      shadowBlur: 5
-    });
-    helpers.layer.draw();
-  },
   remove: function() {
+    helpers.removeFromIndex(this.itemGroup);
     this.itemGroup.destroy();
   }
-}, {});
+}, {}, CanvasItemUtil);
 module.exports = CanvasItem;
 
-},{"../Helpers":8,"./NodeConnection":15,"./NodeText":16}],13:[function(require,module,exports){
+},{"../CanvasItemUtil":5,"../Helpers":9,"./NodeConnection":16,"./NodeText":17}],14:[function(require,module,exports){
 "use strict";
 var CanvasItem = require('./CanvasItem');
 var FlowItem = function FlowItem() {
@@ -21787,7 +21814,7 @@ var $FlowItem = FlowItem;
 ($traceurRuntime.createClass)(FlowItem, {}, {}, CanvasItem);
 module.exports = FlowItem;
 
-},{"./CanvasItem":12}],14:[function(require,module,exports){
+},{"./CanvasItem":13}],15:[function(require,module,exports){
 "use strict";
 var CanvasItem = require('./CanvasItem');
 var FlowLine = function FlowLine(canvas, ctx) {
@@ -21811,20 +21838,81 @@ var FlowLine = function FlowLine(canvas, ctx) {
 }, {}, CanvasItem);
 module.exports = FlowLine;
 
-},{"./CanvasItem":12}],15:[function(require,module,exports){
+},{"./CanvasItem":13}],16:[function(require,module,exports){
 "use strict";
 var connections = require('../connections');
-var NodeConnection = function NodeConnection(node1, node2) {
+var helpers = require('../Helpers');
+var NodeConnection = function NodeConnection(node1, node2, cb) {
   this.connectFrom = node1;
   this.connectTo = node2;
-  this.connect();
+  this.callback = cb;
+  this.anim = null;
+  this.indicator = null;
 };
-($traceurRuntime.createClass)(NodeConnection, {connect: function() {
+($traceurRuntime.createClass)(NodeConnection, {
+  start: function() {
+    var self = this;
+    var indPos = this.connectTo.getAbsolutePosition();
+    var targetShape = this.connectTo.find(".nodeShape");
+    console.log(targetShape[0].width());
+    this.indicator = new Kinetic.Circle({
+      width: 100,
+      heigth: 100,
+      scaleX: 5,
+      scaleY: 5,
+      opacity: 0.3,
+      x: (indPos.x + (targetShape[0].width() / 2)),
+      y: (indPos.y + (targetShape[0].height() / 2)),
+      fill: '#ff0000'
+    });
+    helpers.layer.add(this.indicator);
+    this.indicator.moveToBottom();
+    helpers.layer.draw();
+    this.anim = new Kinetic.Tween({
+      node: this.indicator,
+      duration: 1,
+      scaleX: 1,
+      scaleY: 1,
+      easing: Kinetic.Easings.EaseOut,
+      onFinish: this.connect.bind(this)
+    });
+    this.anim.play();
+  },
+  cancel: function() {
+    console.log("connection canceled...");
+    if (this.anim !== null)
+      this.anim.reset();
+    if (this.indicator !== null)
+      this.indicator.destroy();
+    helpers.layer.draw();
+  },
+  connect: function() {
     console.log("connecting nodes...");
-  }}, {});
+    this.line = new Kinetic.Line({
+      points: this.buildLinePoints(),
+      stroke: "black",
+      strokeWidth: 1
+    });
+    helpers.connectionLayer.add(this.line);
+    helpers.connectionLayer.draw();
+    this.setListeners();
+    this.callback();
+  },
+  buildLinePoints: function() {
+    var n1Shape = this.connectFrom.find(".nodeShape")[0];
+    var n2Shape = this.connectTo.find(".nodeShape")[0];
+    var n1Pos = this.connectFrom.getAbsolutePosition();
+    var n2Pos = this.connectTo.getAbsolutePosition();
+    var n1X = n1Pos.x + (n1Shape.width() / 2);
+    var n1Y = n1Pos.y + (n1Shape.height() / 2);
+    var n2X = n2Pos.x + (n2Shape.width() / 2);
+    var n2Y = n2Pos.y + (n2Shape.height() / 2);
+    return [n1X, n1Y, n2X, n2Y];
+  }
+}, {});
 module.exports = NodeConnection;
 
-},{"../connections":19}],16:[function(require,module,exports){
+},{"../Helpers":9,"../connections":20}],17:[function(require,module,exports){
 "use strict";
 var helpers = require('../Helpers');
 var textConfig = {
@@ -21875,9 +21963,9 @@ var NodeText = function NodeText(parent) {
 }, {});
 module.exports = NodeText;
 
-},{"../Helpers":8}],17:[function(require,module,exports){
-module.exports=require(16)
-},{"../Helpers":8}],18:[function(require,module,exports){
+},{"../Helpers":9}],18:[function(require,module,exports){
+module.exports=require(17)
+},{"../Helpers":9}],19:[function(require,module,exports){
 "use strict";
 var CanvasItem = require('./CanvasItem');
 var squareNodeConfig = {
@@ -21898,12 +21986,12 @@ var $SquareNode = SquareNode;
 ($traceurRuntime.createClass)(SquareNode, {}, {}, CanvasItem);
 module.exports = SquareNode;
 
-},{"./CanvasItem":12}],19:[function(require,module,exports){
+},{"./CanvasItem":13}],20:[function(require,module,exports){
 "use strict";
 var connections = [];
 module.exports = connections;
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 "use strict";
 var Application = require('./app/Application');
 window.Kinetic = require('kinetic');
@@ -21912,4 +22000,4 @@ window.onload = function() {
   app.init();
 };
 
-},{"./app/Application":4,"kinetic":2}]},{},[4,5,6,7,8,9,10,11,12,13,14,15,17,18,19,20]);
+},{"./app/Application":4,"kinetic":2}]},{},[4,5,6,7,8,9,10,11,12,13,14,15,16,18,19,20,21]);

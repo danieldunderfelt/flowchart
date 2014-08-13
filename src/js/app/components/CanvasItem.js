@@ -1,6 +1,7 @@
 var NodeText = require('./NodeText');
 var NodeConnection = require('./NodeConnection');
 var helpers = require('../Helpers');
+var CanvasItemUtil = require('../CanvasItemUtil');
 
 var groupConfig = {
 	draggable: true
@@ -10,8 +11,10 @@ var startZIndex = 0;
 var startPos = {};
 
 var isDragging = false;
+var intersectionFound = false;
+var connectionInProgress = false;
 
-class CanvasItem {
+class CanvasItem extends CanvasItemUtil {
 
 	constructor() {
 		this.groupId = Date.now();
@@ -51,16 +54,6 @@ class CanvasItem {
 		this.add(layer);
 	}
 
-	add(layer) {
-		layer.add(this.itemGroup);
-		layer.draw();
-	}
-
-	setPos(pos) {
-		this.itemGroup.x(pos.x - (this.item.width() / 2));
-		this.itemGroup.y(pos.y - (this.item.height() / 2));
-	}
-
 	dragStart(e) {
 		startZIndex = e.target.getZIndex();
 		startPos = e.target.getAbsolutePosition();
@@ -71,13 +64,15 @@ class CanvasItem {
 	dragMove(e) {
 		var pos = helpers.stage.getPointerPosition();
 		var intersecting = helpers.dragOver(pos, this.itemGroup.id());
-		console.log(intersecting);
 
-		if(intersecting) {
-			var overEle = intersecting.getParent();
-		 	if(overEle.id() !== e.target.id()) {
-				this.connectTo(overEle);
+		if(!intersectionFound && intersecting !== false) {
+			intersectionFound = true;
+		 	if(intersecting.id() !== e.target.id()) {
+				this.connectTo(intersecting);
 			}
+		}
+		else if(connectionInProgress && intersecting === false) {
+			connectionInProgress.cancel();
 		}
 	}
 
@@ -87,11 +82,13 @@ class CanvasItem {
 	}
 
 	connectTo(node) {
-		var connection = new NodeConnection(this.itemGroup, node);
-		this.afterConnect();
+		connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
+		connectionInProgress.start();
 	}
 
 	afterConnect() {
+		connectionInProgress = false;
+		intersectionFound = false;
 
 		var returnAnim = new Kinetic.Tween({
 			x: startPos.x,
@@ -104,25 +101,8 @@ class CanvasItem {
 		returnAnim.play();
 	}
 
-	highlight() {
-		this.item.setAttrs({
-			shadowOpacity: 0.5,
-			shadowBlur: 20
-		});
-
-		helpers.layer.draw();
-	}
-
-	removeHighlight() {
-		this.item.setAttrs({
-			shadowOpacity: 0.3,
-			shadowBlur: 5
-		});
-
-		helpers.layer.draw();
-	}
-
 	remove() {
+		helpers.removeFromIndex(this.itemGroup);
 		this.itemGroup.destroy();
 	}
 }
