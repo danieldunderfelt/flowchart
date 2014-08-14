@@ -31,7 +31,9 @@ var CanvasItem = function CanvasItem() {
   $traceurRuntime.setProperty(helpers.controllers, this.groupId, this);
   this.itemGroup.on('dragstart', this.dragStart.bind(this));
   this.itemGroup.on('dragend', this.dragEnd.bind(this));
-  this.itemGroup.on('dragmove', this.dragMove.bind(this));
+  this.itemGroup.on('dragmove', helpers.throttle(function(e) {
+    this.dragMove(e);
+  }, 20, this));
   this.intersectionFound = false;
   this.connections = [];
 };
@@ -49,6 +51,13 @@ var CanvasItem = function CanvasItem() {
   dragMove: function(e) {
     if (this.connections.length > 0)
       this.updateConnections();
+    this.doConnection(e);
+  },
+  dragEnd: function(e) {
+    e.target.setZIndex(startZIndex);
+    this.removeHighlight();
+  },
+  doConnection: function(e) {
     var pos = helpers.stage.getPointerPosition();
     var intersecting = helpers.dragOver(pos, this.itemGroup.id());
     if (!this.intersectionFound && intersecting !== false) {
@@ -60,15 +69,10 @@ var CanvasItem = function CanvasItem() {
       this.intersectionFound = false;
     }
   },
-  dragEnd: function(e) {
-    e.target.setZIndex(startZIndex);
-    this.removeHighlight();
-  },
   updateConnections: function() {
     for (var con = 0; con < this.connections.length; con++) {
       this.connections[$traceurRuntime.toProperty(con)].updateConnection();
     }
-    helpers.connectionLayer.batchDraw();
   },
   connectTo: function(node) {
     var connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));

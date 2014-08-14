@@ -45,7 +45,9 @@ class CanvasItem extends CanvasItemUtil {
 
 		this.itemGroup.on('dragstart', this.dragStart.bind(this));
 		this.itemGroup.on('dragend', this.dragEnd.bind(this));
-		this.itemGroup.on('dragmove', this.dragMove.bind(this));
+		this.itemGroup.on('dragmove', helpers.throttle(function(e) {
+			this.dragMove(e);
+		}, 20, this));
 
 		this.intersectionFound = false;
 		this.connections = [];
@@ -65,7 +67,15 @@ class CanvasItem extends CanvasItemUtil {
 
 	dragMove(e) {
 		if(this.connections.length > 0) this.updateConnections();
+		this.doConnection(e);
+	}
 
+	dragEnd(e) {
+		e.target.setZIndex(startZIndex);
+		this.removeHighlight();
+	}
+
+	doConnection(e) {
 		var pos = helpers.stage.getPointerPosition();
 		var intersecting = helpers.dragOver(pos, this.itemGroup.id());
 
@@ -80,17 +90,10 @@ class CanvasItem extends CanvasItemUtil {
 		}
 	}
 
-	dragEnd(e) {
-		e.target.setZIndex(startZIndex);
-		this.removeHighlight();
-	}
-
 	updateConnections() {
 		for(var con = 0; con < this.connections.length; con++) {
 			this.connections[con].updateConnection();
 		}
-
-		helpers.connectionLayer.batchDraw();
 	}
 
 	connectTo(node) {

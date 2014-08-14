@@ -7,6 +7,9 @@ class NodeConnection {
 		this.connectTo = node2;
 		this.callback = cb;
 
+		this.connectFromShape = node1.find(".nodeShape")[0];
+		this.connectToShape = node2.find(".nodeShape")[0];
+
 		this.anim = null;
 		this.indicator = null;
 	}
@@ -72,19 +75,22 @@ class NodeConnection {
 
 	updateConnection() {
 		this.line.setAttr("points", this.buildLinePoints());
+		helpers.connectionLayer.batchDraw();
 	}
 
 	buildLinePoints() {
-		var n1Shape = this.connectFrom.find(".nodeShape")[0];
-		var n2Shape = this.connectTo.find(".nodeShape")[0];
+		var n1Width = this.connectFromShape.width();
+		var n2Width = this.connectToShape.width();
+		var n1Height = this.connectFromShape.height();
+		var n2Height = this.connectToShape.height();
 		var n1Pos = this.connectFrom.getAbsolutePosition();
 		var n2Pos = this.connectTo.getAbsolutePosition();
 
-		var n1X = n1Pos.x + (n1Shape.width() / 2);
-		var n1Y = n1Pos.y + (n1Shape.height() / 2);
+		var n1X = n1Pos.x + (n1Width / 2);
+		var n1Y = n1Pos.y + (n1Height / 2);
 
-		var n2X = n2Pos.x + (n2Shape.width() / 2);
-		var n2Y = n2Pos.y + (n2Shape.height() / 2);
+		var n2X = n2Pos.x + (n2Width / 2);
+		var n2Y = n2Pos.y + (n2Height / 2);
 
 		return [n1X, n1Y, n2X, n2Y];
 	}

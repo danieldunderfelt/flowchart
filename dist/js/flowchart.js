@@ -21667,6 +21667,26 @@ var Helpers = {
     }
     return matchingNode;
   },
+  throttle: function(fn, threshhold, scope) {
+    threshhold || (threshhold = 250);
+    var last,
+        deferTimer;
+    return function() {
+      var context = scope || this;
+      var now = +new Date,
+          args = arguments;
+      if (last && now < last + threshhold) {
+        clearTimeout(deferTimer);
+        deferTimer = setTimeout(function() {
+          last = now;
+          fn.apply(context, args);
+        }, threshhold);
+      } else {
+        last = now;
+        fn.apply(context, args);
+      }
+    };
+  },
   purge: function(d) {
     var a = d.attributes,
         i,
@@ -21753,7 +21773,9 @@ var CanvasItem = function CanvasItem() {
   $traceurRuntime.setProperty(helpers.controllers, this.groupId, this);
   this.itemGroup.on('dragstart', this.dragStart.bind(this));
   this.itemGroup.on('dragend', this.dragEnd.bind(this));
-  this.itemGroup.on('dragmove', this.dragMove.bind(this));
+  this.itemGroup.on('dragmove', helpers.throttle(function(e) {
+    this.dragMove(e);
+  }, 20, this));
   this.intersectionFound = false;
   this.connections = [];
 };
@@ -21771,6 +21793,13 @@ var CanvasItem = function CanvasItem() {
   dragMove: function(e) {
     if (this.connections.length > 0)
       this.updateConnections();
+    this.doConnection(e);
+  },
+  dragEnd: function(e) {
+    e.target.setZIndex(startZIndex);
+    this.removeHighlight();
+  },
+  doConnection: function(e) {
     var pos = helpers.stage.getPointerPosition();
     var intersecting = helpers.dragOver(pos, this.itemGroup.id());
     if (!this.intersectionFound && intersecting !== false) {
@@ -21782,15 +21811,10 @@ var CanvasItem = function CanvasItem() {
       this.intersectionFound = false;
     }
   },
-  dragEnd: function(e) {
-    e.target.setZIndex(startZIndex);
-    this.removeHighlight();
-  },
   updateConnections: function() {
     for (var con = 0; con < this.connections.length; con++) {
       this.connections[$traceurRuntime.toProperty(con)].updateConnection();
     }
-    helpers.connectionLayer.batchDraw();
   },
   connectTo: function(node) {
     var connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
@@ -21856,6 +21880,8 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
   this.connectFrom = node1;
   this.connectTo = node2;
   this.callback = cb;
+  this.connectFromShape = node1.find(".nodeShape")[0];
+  this.connectToShape = node2.find(".nodeShape")[0];
   this.anim = null;
   this.indicator = null;
 };
@@ -21912,16 +21938,19 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
   },
   updateConnection: function() {
     this.line.setAttr("points", this.buildLinePoints());
+    helpers.connectionLayer.batchDraw();
   },
   buildLinePoints: function() {
-    var n1Shape = this.connectFrom.find(".nodeShape")[0];
-    var n2Shape = this.connectTo.find(".nodeShape")[0];
+    var n1Width = this.connectFromShape.width();
+    var n2Width = this.connectToShape.width();
+    var n1Height = this.connectFromShape.height();
+    var n2Height = this.connectToShape.height();
     var n1Pos = this.connectFrom.getAbsolutePosition();
     var n2Pos = this.connectTo.getAbsolutePosition();
-    var n1X = n1Pos.x + (n1Shape.width() / 2);
-    var n1Y = n1Pos.y + (n1Shape.height() / 2);
-    var n2X = n2Pos.x + (n2Shape.width() / 2);
-    var n2Y = n2Pos.y + (n2Shape.height() / 2);
+    var n1X = n1Pos.x + (n1Width / 2);
+    var n1Y = n1Pos.y + (n1Height / 2);
+    var n2X = n2Pos.x + (n2Width / 2);
+    var n2Y = n2Pos.y + (n2Height / 2);
     return [n1X, n1Y, n2X, n2Y];
   }
 }, {});
