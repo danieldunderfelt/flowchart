@@ -26,25 +26,27 @@ var Helpers = {
   dragOver: function(pos, excludeId) {
     var matchingNode = false;
     for (var item = 0; item < this.itemsOnCanvas.length; item++) {
-      if (this.itemsOnCanvas[$traceurRuntime.toProperty(item)].id() === excludeId)
+      if (this.itemsOnCanvas[$traceurRuntime.toProperty(item)].attrs.id === excludeId)
         continue;
       var itemShape = this.itemsOnCanvas[$traceurRuntime.toProperty(item)].find('.nodeShape')[0];
+      var width = itemShape.width();
+      var height = itemShape.height();
       var itemPos = itemShape.getAbsolutePosition();
-      var match = [];
-      var xRange = _.range(itemPos.x, itemPos.x + itemShape.width(), 1);
-      var yRange = _.range(itemPos.y, itemPos.y + itemShape.height(), 1);
-      if (xRange.indexOf(pos.x) > -1) {
-        match.push(true);
-      }
-      if (yRange.indexOf(pos.y) > -1) {
-        match.push(true);
-      }
-      if (match.length === 2) {
+      var xRange = this.range(itemPos.x, itemPos.x + width);
+      var yRange = this.range(itemPos.y, itemPos.y + height);
+      if (xRange.indexOf(pos.x) > -1 && yRange.indexOf(pos.y) > -1) {
         matchingNode = this.itemsOnCanvas[$traceurRuntime.toProperty(item)];
         break;
       }
     }
     return matchingNode;
+  },
+  range: function(start, add) {
+    var rangeArr = [];
+    for (var r = start; r < add; r++) {
+      rangeArr.push(r);
+    }
+    return rangeArr;
   },
   throttle: function(fn, threshhold, scope) {
     threshhold || (threshhold = 250);

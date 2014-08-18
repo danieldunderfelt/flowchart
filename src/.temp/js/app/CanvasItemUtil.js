@@ -11,14 +11,12 @@ var CanvasItemUtil = function CanvasItemUtil() {};
       shadowOpacity: 0.5,
       shadowBlur: 20
     });
-    helpers.layer.draw();
   },
   removeHighlight: function() {
     this.item.setAttrs({
       shadowOpacity: 0.3,
       shadowBlur: 5
     });
-    helpers.layer.draw();
   },
   add: function(layer) {
     layer.add(this.itemGroup);

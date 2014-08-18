@@ -31,11 +31,10 @@ var CanvasItem = function CanvasItem() {
   $traceurRuntime.setProperty(helpers.controllers, this.groupId, this);
   this.itemGroup.on('dragstart', this.dragStart.bind(this));
   this.itemGroup.on('dragend', this.dragEnd.bind(this));
-  this.itemGroup.on('dragmove', helpers.throttle(function(e) {
-    this.dragMove(e);
-  }, 20, this));
+  this.itemGroup.on('dragmove', this.dragMove.bind(this));
   this.intersectionFound = false;
   this.connections = [];
+  this.connectionInProgress = null;
 };
 ($traceurRuntime.createClass)(CanvasItem, {
   addTo: function(layer, pos) {
@@ -43,10 +42,9 @@ var CanvasItem = function CanvasItem() {
     this.add(layer);
   },
   dragStart: function(e) {
-    startZIndex = e.target.getZIndex();
-    startPos = e.target.getAbsolutePosition();
-    e.target.moveToTop();
+    startPos = this.itemGroup.getAbsolutePosition();
     this.highlight();
+    this.cacheConnectionProperties();
   },
   dragMove: function(e) {
     if (this.connections.length > 0)
@@ -54,33 +52,43 @@ var CanvasItem = function CanvasItem() {
     this.doConnection(e);
   },
   dragEnd: function(e) {
-    e.target.setZIndex(startZIndex);
     this.removeHighlight();
+    helpers.layer.draw();
   },
   doConnection: function(e) {
     var pos = helpers.stage.getPointerPosition();
-    var intersecting = helpers.dragOver(pos, this.itemGroup.id());
+    var intersecting = helpers.dragOver(pos, this.itemGroup.attrs.id);
     if (!this.intersectionFound && intersecting !== false) {
       this.intersectionFound = true;
-      if (intersecting.id() !== e.target.id()) {
+      if (intersecting.attrs.id !== this.itemGroup.attrs.id) {
         this.connectTo(intersecting);
       }
     } else if (this.intersectionFound && intersecting === false) {
       this.intersectionFound = false;
+      if (this.connectionInProgress !== null)
+        this.connectionInProgress.cancel();
+    }
+  },
+  cacheConnectionProperties: function() {
+    var id = this.itemGroup.id();
+    for (var con = 0; con < this.connections.length; con++) {
+      this.connections[$traceurRuntime.toProperty(con)].cacheConnection(id);
     }
   },
   updateConnections: function() {
+    var id = this.itemGroup.id();
     for (var con = 0; con < this.connections.length; con++) {
-      this.connections[$traceurRuntime.toProperty(con)].updateConnection();
+      this.connections[$traceurRuntime.toProperty(con)].updateConnection(id);
     }
   },
   connectTo: function(node) {
-    var connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
-    connectionInProgress.start();
+    this.connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
+    this.connectionInProgress.start();
   },
   afterConnect: function(connection) {
     this.connections.push(connection);
     this.intersectionFound = false;
+    this.connectionInProgress = null;
     var returnAnim = new Kinetic.Tween({
       x: startPos.x,
       y: startPos.y,

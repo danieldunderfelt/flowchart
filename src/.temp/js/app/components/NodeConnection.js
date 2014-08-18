@@ -8,6 +8,11 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
   this.connectToShape = node2.find(".nodeShape")[0];
   this.anim = null;
   this.indicator = null;
+  this.n1Width = 0;
+  this.n1Height = 0;
+  this.n2Width = 0;
+  this.n2Height = 0;
+  this.staticElePos = {};
 };
 ($traceurRuntime.createClass)(NodeConnection, {
   start: function() {
@@ -48,34 +53,45 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
   connect: function() {
     console.log("connecting nodes...");
     this.indicator.destroy();
+    this.cacheConnection(this.connectFrom.id());
     this.line = new Kinetic.Line({
-      points: this.buildLinePoints(),
-      stroke: "black",
-      strokeWidth: 1,
-      lineCap: 'round',
-      lineJoin: 'round'
+      points: this.buildLinePoints(this.connectFrom.id()),
+      stroke: "#000000",
+      strokeWidth: 1
     });
     helpers.connectionLayer.add(this.line);
     helpers.stage.draw();
     helpers.controllers[$traceurRuntime.toProperty(this.connectTo.id().split("-")[1])].connections.push(this);
     this.callback(this);
   },
-  updateConnection: function() {
-    this.line.setAttr("points", this.buildLinePoints());
-    helpers.connectionLayer.batchDraw();
+  cacheConnection: function(eleId) {
+    if (eleId === this.connectTo.id()) {
+      var staticEle = this.connectFrom;
+      var mobileEle = this.connectTo;
+    } else {
+      var staticEle = this.connectTo;
+      var mobileEle = this.connectFrom;
+    }
+    this.staticElePos = staticEle.getAbsolutePosition();
+    this.n1Width = mobileEle.width();
+    this.n2Width = staticEle.width();
+    this.n1Height = mobileEle.height();
+    this.n2Height = staticEle.height();
   },
-  buildLinePoints: function() {
-    var n1Width = this.connectFromShape.width();
-    var n2Width = this.connectToShape.width();
-    var n1Height = this.connectFromShape.height();
-    var n2Height = this.connectToShape.height();
-    var n1Pos = this.connectFrom.getAbsolutePosition();
-    var n2Pos = this.connectTo.getAbsolutePosition();
-    var n1X = n1Pos.x + (n1Width / 2);
-    var n1Y = n1Pos.y + (n1Height / 2);
-    var n2X = n2Pos.x + (n2Width / 2);
-    var n2Y = n2Pos.y + (n2Height / 2);
-    return [n1X, n1Y, n2X, n2Y];
+  updateConnection: function(ele) {
+    this.line.setAttr("points", this.buildLinePoints(ele));
+    helpers.stage.batchDraw();
+  },
+  buildLinePoints: function(eleId) {
+    var mobileEle = eleId === this.connectTo.id() ? this.connectTo : this.connectFrom;
+    var n1Pos = mobileEle.getAbsolutePosition();
+    var n2Pos = this.staticElePos;
+    var n1X = n1Pos.x + (this.n1Width / 2);
+    var n1Y = n1Pos.y + (this.n1Height / 2);
+    var n2X = n2Pos.x + (this.n2Width / 2);
+    var n2Y = n2Pos.y + (this.n2Height / 2);
+    var points = [n1X, n1Y, n2X, n2Y];
+    return points;
   }
 }, {});
 module.exports = NodeConnection;

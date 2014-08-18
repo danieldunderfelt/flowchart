@@ -45,12 +45,11 @@ class CanvasItem extends CanvasItemUtil {
 
 		this.itemGroup.on('dragstart', this.dragStart.bind(this));
 		this.itemGroup.on('dragend', this.dragEnd.bind(this));
-		this.itemGroup.on('dragmove', helpers.throttle(function(e) {
-			this.dragMove(e);
-		}, 20, this));
+		this.itemGroup.on('dragmove', this.dragMove.bind(this));
 
 		this.intersectionFound = false;
 		this.connections = [];
+		this.connectionInProgress = null;
 	}
 
 	addTo(layer, pos) {
@@ -59,10 +58,9 @@ class CanvasItem extends CanvasItemUtil {
 	}
 
 	dragStart(e) {
-		startZIndex = e.target.getZIndex();
-		startPos = e.target.getAbsolutePosition();
-		e.target.moveToTop();
+		startPos = this.itemGroup.getAbsolutePosition();
 		this.highlight();
+		this.cacheConnectionProperties();
 	}
 
 	dragMove(e) {
@@ -71,39 +69,49 @@ class CanvasItem extends CanvasItemUtil {
 	}
 
 	dragEnd(e) {
-		e.target.setZIndex(startZIndex);
 		this.removeHighlight();
+		helpers.layer.draw();
 	}
 
 	doConnection(e) {
 		var pos = helpers.stage.getPointerPosition();
-		var intersecting = helpers.dragOver(pos, this.itemGroup.id());
+		var intersecting = helpers.dragOver(pos, this.itemGroup.attrs.id);
 
 		if(!this.intersectionFound && intersecting !== false) {
 			this.intersectionFound = true;
-		 	if(intersecting.id() !== e.target.id()) {
+		 	if(intersecting.attrs.id !== this.itemGroup.attrs.id) {
 				this.connectTo(intersecting);
 			}
 		}
 		else if(this.intersectionFound && intersecting === false) {
 			this.intersectionFound = false;
+			if(this.connectionInProgress !== null) this.connectionInProgress.cancel();
+		}
+	}
+
+	cacheConnectionProperties() {
+		var id = this.itemGroup.id();
+		for(var con = 0; con < this.connections.length; con++) {
+			this.connections[con].cacheConnection(id);
 		}
 	}
 
 	updateConnections() {
+		var id = this.itemGroup.id();
 		for(var con = 0; con < this.connections.length; con++) {
-			this.connections[con].updateConnection();
+			this.connections[con].updateConnection(id);
 		}
 	}
 
 	connectTo(node) {
-		var connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
-		connectionInProgress.start();
+		this.connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
+		this.connectionInProgress.start();
 	}
 
 	afterConnect(connection) {
 		this.connections.push(connection);
 		this.intersectionFound = false;
+		this.connectionInProgress = null;
 
 		var returnAnim = new Kinetic.Tween({
 			x: startPos.x,

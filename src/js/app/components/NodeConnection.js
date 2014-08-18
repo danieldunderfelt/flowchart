@@ -12,6 +12,12 @@ class NodeConnection {
 
 		this.anim = null;
 		this.indicator = null;
+
+		this.n1Width = 0;
+		this.n1Height = 0;
+		this.n2Width = 0;
+		this.n2Height = 0;
+		this.staticElePos = {};
 	}
 
 	start() {
@@ -58,12 +64,12 @@ class NodeConnection {
 
 		this.indicator.destroy();
 
+		this.cacheConnection(this.connectFrom.id());
+
 		this.line = new Kinetic.Line({
-			points: this.buildLinePoints(),
-			stroke: "black",
-			strokeWidth: 1,
-			lineCap: 'round',
-			lineJoin: 'round'
+			points: this.buildLinePoints(this.connectFrom.id()),
+			stroke: "#000000",
+			strokeWidth: 1
 		});
 
 		helpers.connectionLayer.add(this.line);
@@ -73,26 +79,41 @@ class NodeConnection {
 		this.callback(this);
 	}
 
-	updateConnection() {
-		this.line.setAttr("points", this.buildLinePoints());
-		helpers.connectionLayer.batchDraw();
+	cacheConnection(eleId) {
+		if(eleId === this.connectTo.id()) {
+			var staticEle = this.connectFrom;
+			var mobileEle = this.connectTo;
+		}
+		else {
+			var staticEle = this.connectTo;
+			var mobileEle = this.connectFrom;
+		}
+
+		this.staticElePos = staticEle.getAbsolutePosition();
+		this.n1Width = mobileEle.width();
+		this.n2Width = staticEle.width();
+		this.n1Height = mobileEle.height();
+		this.n2Height = staticEle.height();
 	}
 
-	buildLinePoints() {
-		var n1Width = this.connectFromShape.width();
-		var n2Width = this.connectToShape.width();
-		var n1Height = this.connectFromShape.height();
-		var n2Height = this.connectToShape.height();
-		var n1Pos = this.connectFrom.getAbsolutePosition();
-		var n2Pos = this.connectTo.getAbsolutePosition();
+	updateConnection(ele) {
+		this.line.setAttr("points", this.buildLinePoints(ele));
+		helpers.stage.batchDraw();
+	}
 
-		var n1X = n1Pos.x + (n1Width / 2);
-		var n1Y = n1Pos.y + (n1Height / 2);
+	buildLinePoints(eleId) {
+		var mobileEle = eleId === this.connectTo.id() ? this.connectTo : this.connectFrom;
+		var n1Pos = mobileEle.getAbsolutePosition();
+		var n2Pos = this.staticElePos;
 
-		var n2X = n2Pos.x + (n2Width / 2);
-		var n2Y = n2Pos.y + (n2Height / 2);
+		var n1X = n1Pos.x + (this.n1Width / 2);
+		var n1Y = n1Pos.y + (this.n1Height / 2);
 
-		return [n1X, n1Y, n2X, n2Y];
+		var n2X = n2Pos.x + (this.n2Width / 2);
+		var n2Y = n2Pos.y + (this.n2Height / 2);
+
+		var points = [n1X, n1Y, n2X, n2Y];
+		return points;
 	}
 }
 

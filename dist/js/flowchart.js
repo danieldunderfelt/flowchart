@@ -21556,14 +21556,12 @@ var CanvasItemUtil = function CanvasItemUtil() {};
       shadowOpacity: 0.5,
       shadowBlur: 20
     });
-    helpers.layer.draw();
   },
   removeHighlight: function() {
     this.item.setAttrs({
       shadowOpacity: 0.3,
       shadowBlur: 5
     });
-    helpers.layer.draw();
   },
   add: function(layer) {
     layer.add(this.itemGroup);
@@ -21647,25 +21645,27 @@ var Helpers = {
   dragOver: function(pos, excludeId) {
     var matchingNode = false;
     for (var item = 0; item < this.itemsOnCanvas.length; item++) {
-      if (this.itemsOnCanvas[$traceurRuntime.toProperty(item)].id() === excludeId)
+      if (this.itemsOnCanvas[$traceurRuntime.toProperty(item)].attrs.id === excludeId)
         continue;
       var itemShape = this.itemsOnCanvas[$traceurRuntime.toProperty(item)].find('.nodeShape')[0];
+      var width = itemShape.width();
+      var height = itemShape.height();
       var itemPos = itemShape.getAbsolutePosition();
-      var match = [];
-      var xRange = _.range(itemPos.x, itemPos.x + itemShape.width(), 1);
-      var yRange = _.range(itemPos.y, itemPos.y + itemShape.height(), 1);
-      if (xRange.indexOf(pos.x) > -1) {
-        match.push(true);
-      }
-      if (yRange.indexOf(pos.y) > -1) {
-        match.push(true);
-      }
-      if (match.length === 2) {
+      var xRange = this.range(itemPos.x, itemPos.x + width);
+      var yRange = this.range(itemPos.y, itemPos.y + height);
+      if (xRange.indexOf(pos.x) > -1 && yRange.indexOf(pos.y) > -1) {
         matchingNode = this.itemsOnCanvas[$traceurRuntime.toProperty(item)];
         break;
       }
     }
     return matchingNode;
+  },
+  range: function(start, add) {
+    var rangeArr = [];
+    for (var r = start; r < add; r++) {
+      rangeArr.push(r);
+    }
+    return rangeArr;
   },
   throttle: function(fn, threshhold, scope) {
     threshhold || (threshhold = 250);
@@ -21773,11 +21773,10 @@ var CanvasItem = function CanvasItem() {
   $traceurRuntime.setProperty(helpers.controllers, this.groupId, this);
   this.itemGroup.on('dragstart', this.dragStart.bind(this));
   this.itemGroup.on('dragend', this.dragEnd.bind(this));
-  this.itemGroup.on('dragmove', helpers.throttle(function(e) {
-    this.dragMove(e);
-  }, 20, this));
+  this.itemGroup.on('dragmove', this.dragMove.bind(this));
   this.intersectionFound = false;
   this.connections = [];
+  this.connectionInProgress = null;
 };
 ($traceurRuntime.createClass)(CanvasItem, {
   addTo: function(layer, pos) {
@@ -21785,10 +21784,9 @@ var CanvasItem = function CanvasItem() {
     this.add(layer);
   },
   dragStart: function(e) {
-    startZIndex = e.target.getZIndex();
-    startPos = e.target.getAbsolutePosition();
-    e.target.moveToTop();
+    startPos = this.itemGroup.getAbsolutePosition();
     this.highlight();
+    this.cacheConnectionProperties();
   },
   dragMove: function(e) {
     if (this.connections.length > 0)
@@ -21796,33 +21794,43 @@ var CanvasItem = function CanvasItem() {
     this.doConnection(e);
   },
   dragEnd: function(e) {
-    e.target.setZIndex(startZIndex);
     this.removeHighlight();
+    helpers.layer.draw();
   },
   doConnection: function(e) {
     var pos = helpers.stage.getPointerPosition();
-    var intersecting = helpers.dragOver(pos, this.itemGroup.id());
+    var intersecting = helpers.dragOver(pos, this.itemGroup.attrs.id);
     if (!this.intersectionFound && intersecting !== false) {
       this.intersectionFound = true;
-      if (intersecting.id() !== e.target.id()) {
+      if (intersecting.attrs.id !== this.itemGroup.attrs.id) {
         this.connectTo(intersecting);
       }
     } else if (this.intersectionFound && intersecting === false) {
       this.intersectionFound = false;
+      if (this.connectionInProgress !== null)
+        this.connectionInProgress.cancel();
+    }
+  },
+  cacheConnectionProperties: function() {
+    var id = this.itemGroup.id();
+    for (var con = 0; con < this.connections.length; con++) {
+      this.connections[$traceurRuntime.toProperty(con)].cacheConnection(id);
     }
   },
   updateConnections: function() {
+    var id = this.itemGroup.id();
     for (var con = 0; con < this.connections.length; con++) {
-      this.connections[$traceurRuntime.toProperty(con)].updateConnection();
+      this.connections[$traceurRuntime.toProperty(con)].updateConnection(id);
     }
   },
   connectTo: function(node) {
-    var connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
-    connectionInProgress.start();
+    this.connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
+    this.connectionInProgress.start();
   },
   afterConnect: function(connection) {
     this.connections.push(connection);
     this.intersectionFound = false;
+    this.connectionInProgress = null;
     var returnAnim = new Kinetic.Tween({
       x: startPos.x,
       y: startPos.y,
@@ -21884,6 +21892,11 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
   this.connectToShape = node2.find(".nodeShape")[0];
   this.anim = null;
   this.indicator = null;
+  this.n1Width = 0;
+  this.n1Height = 0;
+  this.n2Width = 0;
+  this.n2Height = 0;
+  this.staticElePos = {};
 };
 ($traceurRuntime.createClass)(NodeConnection, {
   start: function() {
@@ -21924,34 +21937,45 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
   connect: function() {
     console.log("connecting nodes...");
     this.indicator.destroy();
+    this.cacheConnection(this.connectFrom.id());
     this.line = new Kinetic.Line({
-      points: this.buildLinePoints(),
-      stroke: "black",
-      strokeWidth: 1,
-      lineCap: 'round',
-      lineJoin: 'round'
+      points: this.buildLinePoints(this.connectFrom.id()),
+      stroke: "#000000",
+      strokeWidth: 1
     });
     helpers.connectionLayer.add(this.line);
     helpers.stage.draw();
     helpers.controllers[$traceurRuntime.toProperty(this.connectTo.id().split("-")[1])].connections.push(this);
     this.callback(this);
   },
-  updateConnection: function() {
-    this.line.setAttr("points", this.buildLinePoints());
-    helpers.connectionLayer.batchDraw();
+  cacheConnection: function(eleId) {
+    if (eleId === this.connectTo.id()) {
+      var staticEle = this.connectFrom;
+      var mobileEle = this.connectTo;
+    } else {
+      var staticEle = this.connectTo;
+      var mobileEle = this.connectFrom;
+    }
+    this.staticElePos = staticEle.getAbsolutePosition();
+    this.n1Width = mobileEle.width();
+    this.n2Width = staticEle.width();
+    this.n1Height = mobileEle.height();
+    this.n2Height = staticEle.height();
   },
-  buildLinePoints: function() {
-    var n1Width = this.connectFromShape.width();
-    var n2Width = this.connectToShape.width();
-    var n1Height = this.connectFromShape.height();
-    var n2Height = this.connectToShape.height();
-    var n1Pos = this.connectFrom.getAbsolutePosition();
-    var n2Pos = this.connectTo.getAbsolutePosition();
-    var n1X = n1Pos.x + (n1Width / 2);
-    var n1Y = n1Pos.y + (n1Height / 2);
-    var n2X = n2Pos.x + (n2Width / 2);
-    var n2Y = n2Pos.y + (n2Height / 2);
-    return [n1X, n1Y, n2X, n2Y];
+  updateConnection: function(ele) {
+    this.line.setAttr("points", this.buildLinePoints(ele));
+    helpers.stage.batchDraw();
+  },
+  buildLinePoints: function(eleId) {
+    var mobileEle = eleId === this.connectTo.id() ? this.connectTo : this.connectFrom;
+    var n1Pos = mobileEle.getAbsolutePosition();
+    var n2Pos = this.staticElePos;
+    var n1X = n1Pos.x + (this.n1Width / 2);
+    var n1Y = n1Pos.y + (this.n1Height / 2);
+    var n2X = n2Pos.x + (this.n2Width / 2);
+    var n2Y = n2Pos.y + (this.n2Height / 2);
+    var points = [n1X, n1Y, n2X, n2Y];
+    return points;
   }
 }, {});
 module.exports = NodeConnection;

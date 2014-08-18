@@ -12,8 +12,6 @@ class CanvasItemUtil {
 			shadowOpacity: 0.5,
 			shadowBlur: 20
 		});
-
-		helpers.layer.draw();
 	}
 
 	removeHighlight() {
@@ -21,8 +19,6 @@ class CanvasItemUtil {
 			shadowOpacity: 0.3,
 			shadowBlur: 5
 		});
-
-		helpers.layer.draw();
 	}
 
 	add(layer) {

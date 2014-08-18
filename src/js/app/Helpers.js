@@ -34,32 +34,33 @@ var Helpers = {
 		var matchingNode = false;
 
 		for(var item = 0; item < this.itemsOnCanvas.length; item++) {
-
-			if(this.itemsOnCanvas[item].id() === excludeId) continue;
+			if(this.itemsOnCanvas[item].attrs.id === excludeId) continue;
 
 			var itemShape = this.itemsOnCanvas[item].find('.nodeShape')[0];
+			var width = itemShape.width();
+			var height = itemShape.height();
 			var itemPos = itemShape.getAbsolutePosition();
 
-			var match = [];
+			var xRange = this.range(itemPos.x, itemPos.x + width);
+			var yRange = this.range(itemPos.y, itemPos.y + height);
 
-			var xRange = _.range(itemPos.x, itemPos.x + itemShape.width(), 1);
-			var yRange = _.range(itemPos.y, itemPos.y + itemShape.height(), 1);
-
-			if(xRange.indexOf(pos.x) > -1) {
-				match.push(true);
-			}
-
-			if(yRange.indexOf(pos.y) > -1) {
-				match.push(true);
-			}
-
-			if(match.length === 2) {
+			if(xRange.indexOf(pos.x) > -1 && yRange.indexOf(pos.y) > -1) {
 				matchingNode = this.itemsOnCanvas[item];
 				break;
 			}
 		}
 
 		return matchingNode;
+	},
+
+	range: function(start, add) {
+		var rangeArr = [];
+
+		for(var r = start; r < add; r++) {
+			rangeArr.push(r);
+		}
+
+		return rangeArr;
 	},
 
 	throttle: function(fn, threshhold, scope) {
