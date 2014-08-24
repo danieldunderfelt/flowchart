@@ -1,14 +1,16 @@
 var NodeText = require('./NodeText');
 var NodeConnection = require('./NodeConnection');
-var helpers = require('../Helpers');
+var g = require('../Globals');
 var CanvasItemUtil = require('../CanvasItemUtil');
-
-var groupConfig = {
-	draggable: true
-};
+var _ = require('lodash');
 
 var startZIndex = 0;
 var startPos = {};
+
+var generalShapeOptions = {
+	selectable: false,
+	shadow: "0px 0px 5px rgba(0,0,0,0.3)"
+};
 
 var isDragging = false;
 
@@ -16,72 +18,54 @@ class CanvasItem extends CanvasItemUtil {
 
 	constructor() {
 		this.groupId = Date.now();
+		this.item = new fabric[this.nodeType](_.merge(this.nodeConfig, generalShapeOptions));
+		this.text = new NodeText(this.item);
 
-		this.itemGroup = new Kinetic.Group(groupConfig);
-		this.item = new Kinetic[this.nodeType](this.nodeConfig);
-		this.text = new NodeText(this.itemGroup);
-
-		this.itemGroup.setAttrs({
-			id: 'group-'+this.groupId,
-			name: 'nodeContainer',
+		this.itemGroup = new fabric.Group([this.item, this.text], {
+			left: 0,
+			top: 0,
+			id: this.groupId,
+			hasControls: false,
+			controller: this
 		});
 
-		this.item.setAttrs({
-			id: 'item-'+this.groupId,
-			name: 'nodeShape'
-		});
+		g.controllers[this.groupId] = this;
 
-		this.text.textElement.setAttrs({
-			id: 'text-'+this.groupId,
-			name: 'nodeText',
-			text: 'group-'+this.groupId
-		});
-
-		this.itemGroup.add(this.item);
-		this.itemGroup.add(this.text.textElement);
-
-		helpers.itemsOnCanvas.push(this.itemGroup);
-		helpers.controllers[this.groupId] = this;
-
-		this.itemGroup.on('dragstart', this.dragStart.bind(this));
-		this.itemGroup.on('dragend', this.dragEnd.bind(this));
-		this.itemGroup.on('dragmove', this.dragMove.bind(this));
-
-		this.intersectionFound = false;
 		this.connections = [];
 		this.connectionInProgress = null;
 	}
 
-	addTo(layer, pos) {
+	add(pos) {
 		this.setPos(pos);
-		this.add(layer);
-	}
-
-	dragStart(e) {
-		startPos = this.itemGroup.getAbsolutePosition();
-		this.highlight();
-		this.cacheConnectionProperties();
+		g.canvas.add(this.itemGroup);
 	}
 
 	dragMove(e) {
+		e.target.setCoords();
 		if(this.connections.length > 0) this.updateConnections();
 		this.doConnection(e);
 	}
 
-	dragEnd(e) {
-		this.removeHighlight();
-		helpers.layer.draw();
-	}
-
 	doConnection(e) {
-		var pos = helpers.stage.getPointerPosition();
-		var intersecting = helpers.dragOver(pos, this.itemGroup.attrs.id);
+		var me = e.target;
+
+		var intersecting = false;
+		var items = g.canvas.getObjects();
+
+		for (var i = 0, n = items.length; i < n; i++) {
+			var m = items[i];
+
+			if(me === m || m.type !== "group") continue;
+
+			if (me.intersectsWithObject(m)) {
+				intersecting = m;
+				break;
+			}
+		}
 
 		if(!this.intersectionFound && intersecting !== false) {
 			this.intersectionFound = true;
-		 	if(intersecting.attrs.id !== this.itemGroup.attrs.id) {
-				this.connectTo(intersecting);
-			}
+			this.connectTo(intersecting);
 		}
 		else if(this.intersectionFound && intersecting === false) {
 			this.intersectionFound = false;
@@ -89,43 +73,37 @@ class CanvasItem extends CanvasItemUtil {
 		}
 	}
 
-	cacheConnectionProperties() {
-		var id = this.itemGroup.id();
+	updateConnections() {
 		for(var con = 0; con < this.connections.length; con++) {
-			this.connections[con].cacheConnection(id);
+			this.connections[con].renderConnection();
 		}
 	}
 
-	updateConnections() {
-		var id = this.itemGroup.id();
+	checkExistingConnections(node) {
+		var status = false;
 		for(var con = 0; con < this.connections.length; con++) {
-			this.connections[con].updateConnection(id);
+			if(this.connections[con].connectTo === node) {
+				status = true;
+			}
 		}
+
+		return status;
 	}
 
 	connectTo(node) {
-		this.connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
-		this.connectionInProgress.start();
+		if(!this.checkExistingConnections(node)) {
+			this.connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
+			this.connectionInProgress.start();
+		}
 	}
 
 	afterConnect(connection) {
-		this.connections.push(connection);
 		this.intersectionFound = false;
 		this.connectionInProgress = null;
-
-		var returnAnim = new Kinetic.Tween({
-			x: startPos.x,
-			y: startPos.y,
-			node: this.itemGroup,
-			duration: 0.3,
-			easing: Kinetic.Easings.EaseOut
-		});
-
-		returnAnim.play();
 	}
 
 	remove() {
-		helpers.removeFromIndex(this.itemGroup);
+		g.removeFromIndex(this.itemGroup);
 		this.itemGroup.destroy();
 	}
 }

@@ -1,14 +1,8 @@
 var _ = require('lodash');
 
-var Helpers = {
+var Globals = {
 
-	stage: {},
-	layer: {},
-	tempLayer: {},
-	connectionLayer: {},
-
-	itemsOnCanvas: [],
-
+	canvas: {},
 	controllers: {},
 
 	getMousePos: function(e) {
@@ -20,17 +14,7 @@ var Helpers = {
 		};
 	},
 
-	removeFromIndex: function(item) {
-		for(var i = 0; i < this.itemsOnCanvas.length; i++) {
-			var extItem = this.itemsOnCanvas[i];
-			if(extItem.id() === item.id()) {
-				this.itemsOnCanvas.splice(i, 1);
-				return;
-			}
-		}
-	},
-
-	dragOver: function(pos, excludeId) {
+	/*dragOver: function(pos, excludeId) {
 		var matchingNode = false;
 
 		for(var item = 0; item < this.itemsOnCanvas.length; item++) {
@@ -61,7 +45,7 @@ var Helpers = {
 		}
 
 		return rangeArr;
-	},
+	},*/
 
 	throttle: function(fn, threshhold, scope) {
 		threshhold || (threshhold = 250);
@@ -106,4 +90,4 @@ var Helpers = {
 	}
 };
 
-module.exports = Helpers;
+module.exports = Globals;

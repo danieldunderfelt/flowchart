@@ -1,28 +1,27 @@
-var helpers = require('../Helpers');
+var g = require('../Globals');
 
 var textConfig = {
-	text: 'Add your thought',
 	fontSize: 14,
 	fontFamily: 'Helvetica Neue',
 	fill: '#222',
-	width: 95,
-	height: 100,
-	padding: 10,
-	align: 'center',
+	textAlign: 'center',
+	originX: 'center',
+	originY: 'center'
 };
 
 class NodeText {
 
-	constructor(parent) {
-		this.parent = parent;
-		this.textElement = new Kinetic.Text(textConfig);
+	constructor(shape) {
+		this.shape = shape;
+		this.textElement = new fabric.Text("add your thought", textConfig);
 		this.textElement.on('dblclick', this.editText.bind(this));
+		return this.textElement;
 	}
 
 	editText(e) {
 		this.input = this.createInput();
-		this.input.style.left = this.parent.x() + "px";
-		this.input.style.top = this.parent.y() + "px";
+		this.input.style.top = this.shape.getTop() + "px";
+		this.input.style.left = this.shape.getLeft() + "px";
 		window.addEventListener('keydown', this.commitEdit.bind(this));
 	}
 
@@ -45,13 +44,13 @@ class NodeText {
 		e.preventDefault();
 
 		var userText = this.input.value;
-		helpers.purge(this.input);
+		g.purge(this.input);
 		this.input.remove();
 
 		if(e.keyCode === 27) return false;
 
-		this.textElement.text(userText);
-		this.parent.draw();
+		this.textElement.setText(userText);
+		g.canvas.renderAll();
 	}
 }
 

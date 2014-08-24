@@ -8,10 +8,22 @@ module.exports = function(grunt) {
     pkg: grunt.file.readJSON('package.json'),
     banner: '/*! <%= pkg.name %>\n <%= grunt.template.today("yyyy-mm-dd") %>\n Author:<%= pkg.author %>\n License: <%= pkg.license %>\n*/\n',
 
+    notify: {
+      watch: {
+        options: {
+          title: "Build",
+          message: "Build done!"
+        }
+      }
+    },
+
     browserify: {
       dist: {
         files: {
           "dist/js/flowchart.js": ["src/.temp/js/**/*.js"]
+        },
+        options: {
+
         }
       },
     },
@@ -80,5 +92,5 @@ module.exports = function(grunt) {
 
   require('load-grunt-tasks')(grunt);
 
-  grunt.registerTask('dev', ['watch']);
+  grunt.registerTask('dev', ['watch', 'notify']);
 };

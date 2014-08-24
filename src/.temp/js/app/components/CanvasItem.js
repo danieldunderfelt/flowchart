@@ -1,105 +1,91 @@
 "use strict";
 var NodeText = require('./NodeText');
 var NodeConnection = require('./NodeConnection');
-var helpers = require('../Helpers');
+var g = require('../Globals');
 var CanvasItemUtil = require('../CanvasItemUtil');
-var groupConfig = {draggable: true};
+var _ = require('lodash');
 var startZIndex = 0;
 var startPos = {};
+var generalShapeOptions = {
+  selectable: false,
+  shadow: "0px 0px 5px rgba(0,0,0,0.3)"
+};
 var isDragging = false;
 var CanvasItem = function CanvasItem() {
   this.groupId = Date.now();
-  this.itemGroup = new Kinetic.Group(groupConfig);
-  this.item = new Kinetic[$traceurRuntime.toProperty(this.nodeType)](this.nodeConfig);
-  this.text = new NodeText(this.itemGroup);
-  this.itemGroup.setAttrs({
-    id: 'group-' + this.groupId,
-    name: 'nodeContainer'
+  this.item = new fabric[$traceurRuntime.toProperty(this.nodeType)](_.merge(this.nodeConfig, generalShapeOptions));
+  this.text = new NodeText(this.item);
+  this.itemGroup = new fabric.Group([this.item, this.text], {
+    left: 0,
+    top: 0,
+    id: this.groupId,
+    hasControls: false,
+    controller: this
   });
-  this.item.setAttrs({
-    id: 'item-' + this.groupId,
-    name: 'nodeShape'
-  });
-  this.text.textElement.setAttrs({
-    id: 'text-' + this.groupId,
-    name: 'nodeText',
-    text: 'group-' + this.groupId
-  });
-  this.itemGroup.add(this.item);
-  this.itemGroup.add(this.text.textElement);
-  helpers.itemsOnCanvas.push(this.itemGroup);
-  $traceurRuntime.setProperty(helpers.controllers, this.groupId, this);
-  this.itemGroup.on('dragstart', this.dragStart.bind(this));
-  this.itemGroup.on('dragend', this.dragEnd.bind(this));
-  this.itemGroup.on('dragmove', this.dragMove.bind(this));
-  this.intersectionFound = false;
+  $traceurRuntime.setProperty(g.controllers, this.groupId, this);
   this.connections = [];
   this.connectionInProgress = null;
 };
 ($traceurRuntime.createClass)(CanvasItem, {
-  addTo: function(layer, pos) {
+  add: function(pos) {
     this.setPos(pos);
-    this.add(layer);
-  },
-  dragStart: function(e) {
-    startPos = this.itemGroup.getAbsolutePosition();
-    this.highlight();
-    this.cacheConnectionProperties();
+    g.canvas.add(this.itemGroup);
   },
   dragMove: function(e) {
+    e.target.setCoords();
     if (this.connections.length > 0)
       this.updateConnections();
     this.doConnection(e);
   },
-  dragEnd: function(e) {
-    this.removeHighlight();
-    helpers.layer.draw();
-  },
   doConnection: function(e) {
-    var pos = helpers.stage.getPointerPosition();
-    var intersecting = helpers.dragOver(pos, this.itemGroup.attrs.id);
+    var me = e.target;
+    var intersecting = false;
+    var items = g.canvas.getObjects();
+    for (var i = 0,
+        n = items.length; i < n; i++) {
+      var m = items[$traceurRuntime.toProperty(i)];
+      if (me === m || m.type !== "group")
+        continue;
+      if (me.intersectsWithObject(m)) {
+        intersecting = m;
+        break;
+      }
+    }
     if (!this.intersectionFound && intersecting !== false) {
       this.intersectionFound = true;
-      if (intersecting.attrs.id !== this.itemGroup.attrs.id) {
-        this.connectTo(intersecting);
-      }
+      this.connectTo(intersecting);
     } else if (this.intersectionFound && intersecting === false) {
       this.intersectionFound = false;
       if (this.connectionInProgress !== null)
         this.connectionInProgress.cancel();
     }
   },
-  cacheConnectionProperties: function() {
-    var id = this.itemGroup.id();
+  updateConnections: function() {
     for (var con = 0; con < this.connections.length; con++) {
-      this.connections[$traceurRuntime.toProperty(con)].cacheConnection(id);
+      this.connections[$traceurRuntime.toProperty(con)].renderConnection();
     }
   },
-  updateConnections: function() {
-    var id = this.itemGroup.id();
+  checkExistingConnections: function(node) {
+    var status = false;
     for (var con = 0; con < this.connections.length; con++) {
-      this.connections[$traceurRuntime.toProperty(con)].updateConnection(id);
+      if (this.connections[$traceurRuntime.toProperty(con)].connectTo === node) {
+        status = true;
+      }
     }
+    return status;
   },
   connectTo: function(node) {
-    this.connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
-    this.connectionInProgress.start();
+    if (!this.checkExistingConnections(node)) {
+      this.connectionInProgress = new NodeConnection(this.itemGroup, node, this.afterConnect.bind(this));
+      this.connectionInProgress.start();
+    }
   },
   afterConnect: function(connection) {
-    this.connections.push(connection);
     this.intersectionFound = false;
     this.connectionInProgress = null;
-    var returnAnim = new Kinetic.Tween({
-      x: startPos.x,
-      y: startPos.y,
-      node: this.itemGroup,
-      duration: 0.3,
-      easing: Kinetic.Easings.EaseOut
-    });
-    returnAnim.play();
   },
   remove: function() {
-    helpers.removeFromIndex(this.itemGroup);
+    g.removeFromIndex(this.itemGroup);
     this.itemGroup.destroy();
   }
 }, {}, CanvasItemUtil);

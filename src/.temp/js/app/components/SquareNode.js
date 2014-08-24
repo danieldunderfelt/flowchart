@@ -4,12 +4,11 @@ var squareNodeConfig = {
   width: 100,
   height: 100,
   fill: '#C9EAFF',
-  shadowColor: 'black',
-  shadowBlur: 5,
-  shadowOffset: 0,
-  shadowOpacity: 0.3
+  originX: 'center',
+  originY: 'center'
 };
 var SquareNode = function SquareNode(type) {
+  console.log("Creating square..");
   this.nodeConfig = squareNodeConfig;
   this.nodeType = 'Rect';
   $traceurRuntime.superCall(this, $SquareNode.prototype, "constructor", []);

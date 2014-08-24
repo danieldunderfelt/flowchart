@@ -1,35 +1,43 @@
 "use strict";
 var SquareNode = require('./components/SquareNode');
-var helpers = require('./Helpers');
+var g = require('./Globals');
 var _ = require('lodash');
-var FlowCanvas = function FlowCanvas() {
-  helpers.stage = new Kinetic.Stage({
-    container: 'flowchart',
-    width: 1400,
-    height: 900
-  });
-  helpers.layer = new Kinetic.Layer({id: "mainLayer"});
-  helpers.connectionLayer = new Kinetic.Layer({id: "connectionLayer"});
-  helpers.stage.add(helpers.layer);
-  helpers.stage.add(helpers.connectionLayer);
-  helpers.connectionLayer.moveToBottom();
-};
+var FlowCanvas = function FlowCanvas() {};
 ($traceurRuntime.createClass)(FlowCanvas, {
   init: function() {
+    g.canvas = new fabric.Canvas('flowchart');
+    this.setCanvasDimensions();
     this.startListeners();
   },
   startListeners: function() {
-    var canvasCnt = document.querySelector("#flowchart");
-    canvasCnt.addEventListener('dragover', function(e) {
+    var canvas = document.querySelector("#canvasCnt");
+    canvas.addEventListener('dragover', function(e) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
     });
-    canvasCnt.addEventListener('drop', this.componentDrop.bind(this));
+    canvas.addEventListener('drop', this.componentDrop.bind(this));
+    window.addEventListener('resize', g.throttle(function() {
+      this.setCanvasDimensions();
+    }, 200, this));
+    g.canvas.on('object:moving', function(e) {
+      if (e.target.type === "group") {
+        e.target.controller.dragMove(e);
+      }
+    });
+  },
+  setCanvasDimensions: function(e) {
+    var cnt = document.querySelector("#canvasCnt");
+    var width = cnt.clientWidth;
+    var height = cnt.clientHeight;
+    g.canvas.setDimensions({
+      'width': width,
+      'height': height
+    }).renderAll();
   },
   componentDrop: function(e) {
     e.stopPropagation();
     var newNode = new SquareNode();
-    newNode.addTo(helpers.layer, helpers.getMousePos(e));
+    newNode.add(g.getMousePos(e));
   }
 }, {});
 module.exports = FlowCanvas;
