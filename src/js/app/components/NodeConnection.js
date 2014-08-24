@@ -29,7 +29,7 @@ class NodeConnection {
 		}));
 
 		g.canvas.add(this.indicator);
-		this.indicator.moveTo(0);
+		this.indicator.sendToBack();
 
 		this.indicator.animate('radius', 100, {
 			onChange: g.canvas.renderAll.bind(g.canvas),
@@ -69,7 +69,7 @@ class NodeConnection {
 		});
 
 		g.canvas.add(this.line);
-		this.line.moveTo(0);
+		this.line.sendToBack();
 		g.canvas.renderAll();
 	}
 

@@ -1,6 +1,8 @@
 var g = require('../Globals');
 
 var textConfig = {
+	width: 90,
+	height: 90,
 	fontSize: 14,
 	fontFamily: 'Helvetica Neue',
 	fill: '#222',
@@ -14,7 +16,7 @@ class NodeText {
 	constructor(shape) {
 		this.shape = shape;
 		this.textElement = new fabric.Text("add your thought", textConfig);
-		this.textElement.on('dblclick', this.editText.bind(this));
+		this.textElement.controller = this;
 		return this.textElement;
 	}
 
@@ -31,8 +33,8 @@ class NodeText {
 		textInput.setAttribute('maxlength', 100);
 		textInput.setAttribute('cols', 10);
 		textInput.setAttribute('rows', 5);
-		textInput.value = this.textElement.text();
-		document.querySelector('#flowchart').appendChild(textInput);
+		textInput.value = this.textElement.text;
+		document.getElementById('canvasCnt').appendChild(textInput);
 		return textInput;
 	}
 

@@ -23,6 +23,7 @@ class FlowCanvas {
 		});
 
 		canvas.addEventListener('drop', this.componentDrop.bind(this));
+		canvas.addEventListener('dblclick', this.editText.bind(this));
 
 		window.addEventListener('resize', g.throttle(function() {
 			this.setCanvasDimensions();
@@ -43,6 +44,13 @@ class FlowCanvas {
 			'width': width,
 			'height': height
 		}).renderAll();
+	}
+
+	editText(e) {
+		var clicked = g.canvas.findTarget(e);
+		if(typeof clicked !== "undefined") {
+			clicked.item(1).controller.editText(e);
+		}
 	}
 
 	componentDrop(e) {

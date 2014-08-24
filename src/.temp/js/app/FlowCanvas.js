@@ -16,6 +16,7 @@ var FlowCanvas = function FlowCanvas() {};
       e.dataTransfer.dropEffect = 'copy';
     });
     canvas.addEventListener('drop', this.componentDrop.bind(this));
+    canvas.addEventListener('dblclick', this.editText.bind(this));
     window.addEventListener('resize', g.throttle(function() {
       this.setCanvasDimensions();
     }, 200, this));
@@ -33,6 +34,12 @@ var FlowCanvas = function FlowCanvas() {};
       'width': width,
       'height': height
     }).renderAll();
+  },
+  editText: function(e) {
+    var clicked = g.canvas.findTarget(e);
+    if (typeof clicked !== "undefined") {
+      clicked.item(1).controller.editText(e);
+    }
   },
   componentDrop: function(e) {
     e.stopPropagation();

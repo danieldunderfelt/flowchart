@@ -23,7 +23,7 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
       top: this.connectTo.getTop()
     }));
     g.canvas.add(this.indicator);
-    this.indicator.moveTo(0);
+    this.indicator.sendToBack();
     this.indicator.animate('radius', 100, {
       onChange: g.canvas.renderAll.bind(g.canvas),
       onComplete: this.connect.bind(this),
@@ -55,7 +55,7 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
       hasControls: false
     });
     g.canvas.add(this.line);
-    this.line.moveTo(0);
+    this.line.sendToBack();
     g.canvas.renderAll();
   },
   buildLinePoints: function() {

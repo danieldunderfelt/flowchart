@@ -6842,6 +6842,7 @@ var FlowCanvas = function FlowCanvas() {};
       e.dataTransfer.dropEffect = 'copy';
     });
     canvas.addEventListener('drop', this.componentDrop.bind(this));
+    canvas.addEventListener('dblclick', this.editText.bind(this));
     window.addEventListener('resize', g.throttle(function() {
       this.setCanvasDimensions();
     }, 200, this));
@@ -6859,6 +6860,12 @@ var FlowCanvas = function FlowCanvas() {};
       'width': width,
       'height': height
     }).renderAll();
+  },
+  editText: function(e) {
+    var clicked = g.canvas.findTarget(e);
+    if (typeof clicked !== "undefined") {
+      clicked.item(1).controller.editText(e);
+    }
   },
   componentDrop: function(e) {
     e.stopPropagation();
@@ -7205,7 +7212,7 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
       top: this.connectTo.getTop()
     }));
     g.canvas.add(this.indicator);
-    this.indicator.moveTo(0);
+    this.indicator.sendToBack();
     this.indicator.animate('radius', 100, {
       onChange: g.canvas.renderAll.bind(g.canvas),
       onComplete: this.connect.bind(this),
@@ -7237,7 +7244,7 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
       hasControls: false
     });
     g.canvas.add(this.line);
-    this.line.moveTo(0);
+    this.line.sendToBack();
     g.canvas.renderAll();
   },
   buildLinePoints: function() {
@@ -7253,6 +7260,8 @@ module.exports = NodeConnection;
 "use strict";
 var g = require('../Globals');
 var textConfig = {
+  width: 90,
+  height: 90,
   fontSize: 14,
   fontFamily: 'Helvetica Neue',
   fill: '#222',
@@ -7263,7 +7272,7 @@ var textConfig = {
 var NodeText = function NodeText(shape) {
   this.shape = shape;
   this.textElement = new fabric.Text("add your thought", textConfig);
-  this.textElement.on('dblclick', this.editText.bind(this));
+  this.textElement.controller = this;
   return this.textElement;
 };
 ($traceurRuntime.createClass)(NodeText, {
@@ -7279,8 +7288,8 @@ var NodeText = function NodeText(shape) {
     textInput.setAttribute('maxlength', 100);
     textInput.setAttribute('cols', 10);
     textInput.setAttribute('rows', 5);
-    textInput.value = this.textElement.text();
-    document.querySelector('#flowchart').appendChild(textInput);
+    textInput.value = this.textElement.text;
+    document.getElementById('canvasCnt').appendChild(textInput);
     return textInput;
   },
   commitEdit: function(e) {
