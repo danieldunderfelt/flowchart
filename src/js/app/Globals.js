@@ -1,6 +1,6 @@
 var _ = require('lodash');
 
-var Globals = {
+window.Globals = {
 
 	canvas: {},
 	controllers: {},
@@ -90,4 +90,4 @@ var Globals = {
 	}
 };
 
-module.exports = Globals;
+module.exports = window.Globals;

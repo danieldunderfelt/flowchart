@@ -4,9 +4,6 @@ var g = require('../Globals');
 var CanvasItemUtil = require('../CanvasItemUtil');
 var _ = require('lodash');
 
-var startZIndex = 0;
-var startPos = {};
-
 var generalShapeOptions = {
 	selectable: false,
 	shadow: "0px 0px 5px rgba(0,0,0,0.3)"
@@ -33,6 +30,9 @@ class CanvasItem extends CanvasItemUtil {
 
 		this.connections = [];
 		this.connectionInProgress = null;
+
+		this.startZIndex = 0;
+		this.startPos = null;
 	}
 
 	add(pos) {
@@ -42,8 +42,24 @@ class CanvasItem extends CanvasItemUtil {
 
 	dragMove(e) {
 		e.target.setCoords();
+		this.dragStart(e);
+
 		if(this.connections.length > 0) this.updateConnections();
 		this.doConnection(e);
+
+		this.dragEnd();
+	}
+
+	dragStart(e) {
+		if(!this.startPos) {
+			this.startPos = this.itemGroup.getCenterPoint();
+			this.startZIndex = g.canvas.getObjects().indexOf(this.itemGroup);
+			this.itemGroup.bringToFront();
+		}
+	}
+
+	dragEnd(e) {
+
 	}
 
 	doConnection(e) {
@@ -69,7 +85,9 @@ class CanvasItem extends CanvasItemUtil {
 		}
 		else if(this.intersectionFound && intersecting === false) {
 			this.intersectionFound = false;
-			if(this.connectionInProgress !== null) this.connectionInProgress.cancel();
+			if(this.connectionInProgress !== null) {
+				this.connectionInProgress.cancel();
+			}
 		}
 	}
 
@@ -82,7 +100,8 @@ class CanvasItem extends CanvasItemUtil {
 	checkExistingConnections(node) {
 		var status = false;
 		for(var con = 0; con < this.connections.length; con++) {
-			if(this.connections[con].connectTo === node) {
+			var conn = this.connections[con];
+			if(conn.connectTo === node || conn.connectFrom === node) {
 				status = true;
 			}
 		}
@@ -98,13 +117,26 @@ class CanvasItem extends CanvasItemUtil {
 	}
 
 	afterConnect(connection) {
+		var self = this;
 		this.intersectionFound = false;
 		this.connectionInProgress = null;
+
+		this.itemGroup.animate({
+			left: this.startPos.x,
+			top: this.startPos.y
+		}, {
+			duration: 1000,
+			easing: fabric.util.ease.easeOutExpo,
+			onChange: g.canvas.renderAll.bind(g.canvas),
+			onComplete: function() {
+				this.startPos = null;
+				self.itemGroup.moveTo(self.startZIndex);
+			}
+		})
 	}
 
 	remove() {
-		g.removeFromIndex(this.itemGroup);
-		this.itemGroup.destroy();
+		this.itemGroup.remove();
 	}
 }
 

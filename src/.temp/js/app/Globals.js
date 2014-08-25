@@ -1,6 +1,6 @@
 "use strict";
 var _ = require('lodash');
-var Globals = {
+window.Globals = {
   canvas: {},
   controllers: {},
   getMousePos: function(e) {
@@ -52,4 +52,4 @@ var Globals = {
     }
   }
 };
-module.exports = Globals;
+module.exports = window.Globals;

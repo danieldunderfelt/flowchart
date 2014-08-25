@@ -4,8 +4,6 @@ var NodeConnection = require('./NodeConnection');
 var g = require('../Globals');
 var CanvasItemUtil = require('../CanvasItemUtil');
 var _ = require('lodash');
-var startZIndex = 0;
-var startPos = {};
 var generalShapeOptions = {
   selectable: false,
   shadow: "0px 0px 5px rgba(0,0,0,0.3)"
@@ -25,6 +23,8 @@ var CanvasItem = function CanvasItem() {
   $traceurRuntime.setProperty(g.controllers, this.groupId, this);
   this.connections = [];
   this.connectionInProgress = null;
+  this.startZIndex = 0;
+  this.startPos = null;
 };
 ($traceurRuntime.createClass)(CanvasItem, {
   add: function(pos) {
@@ -33,10 +33,20 @@ var CanvasItem = function CanvasItem() {
   },
   dragMove: function(e) {
     e.target.setCoords();
+    this.dragStart(e);
     if (this.connections.length > 0)
       this.updateConnections();
     this.doConnection(e);
+    this.dragEnd();
   },
+  dragStart: function(e) {
+    if (!this.startPos) {
+      this.startPos = this.itemGroup.getCenterPoint();
+      this.startZIndex = g.canvas.getObjects().indexOf(this.itemGroup);
+      this.itemGroup.bringToFront();
+    }
+  },
+  dragEnd: function(e) {},
   doConnection: function(e) {
     var me = e.target;
     var intersecting = false;
@@ -56,8 +66,9 @@ var CanvasItem = function CanvasItem() {
       this.connectTo(intersecting);
     } else if (this.intersectionFound && intersecting === false) {
       this.intersectionFound = false;
-      if (this.connectionInProgress !== null)
+      if (this.connectionInProgress !== null) {
         this.connectionInProgress.cancel();
+      }
     }
   },
   updateConnections: function() {
@@ -68,7 +79,8 @@ var CanvasItem = function CanvasItem() {
   checkExistingConnections: function(node) {
     var status = false;
     for (var con = 0; con < this.connections.length; con++) {
-      if (this.connections[$traceurRuntime.toProperty(con)].connectTo === node) {
+      var conn = this.connections[$traceurRuntime.toProperty(con)];
+      if (conn.connectTo === node || conn.connectFrom === node) {
         status = true;
       }
     }
@@ -81,12 +93,24 @@ var CanvasItem = function CanvasItem() {
     }
   },
   afterConnect: function(connection) {
+    var self = this;
     this.intersectionFound = false;
     this.connectionInProgress = null;
+    this.itemGroup.animate({
+      left: this.startPos.x,
+      top: this.startPos.y
+    }, {
+      duration: 1000,
+      easing: fabric.util.ease.easeOutExpo,
+      onChange: g.canvas.renderAll.bind(g.canvas),
+      onComplete: function() {
+        this.startPos = null;
+        self.itemGroup.moveTo(self.startZIndex);
+      }
+    });
   },
   remove: function() {
-    g.removeFromIndex(this.itemGroup);
-    this.itemGroup.destroy();
+    this.itemGroup.remove();
   }
 }, {}, CanvasItemUtil);
 module.exports = CanvasItem;

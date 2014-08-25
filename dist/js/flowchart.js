@@ -6881,7 +6881,7 @@ module.exports = FlowCanvas;
 },{}],7:[function(require,module,exports){
 "use strict";
 var _ = require('lodash');
-var Globals = {
+window.Globals = {
   canvas: {},
   controllers: {},
   getMousePos: function(e) {
@@ -6933,7 +6933,7 @@ var Globals = {
     }
   }
 };
-module.exports = Globals;
+module.exports = window.Globals;
 
 },{"lodash":1}],8:[function(require,module,exports){
 "use strict";
@@ -7065,8 +7065,6 @@ var NodeConnection = require('./NodeConnection');
 var g = require('../Globals');
 var CanvasItemUtil = require('../CanvasItemUtil');
 var _ = require('lodash');
-var startZIndex = 0;
-var startPos = {};
 var generalShapeOptions = {
   selectable: false,
   shadow: "0px 0px 5px rgba(0,0,0,0.3)"
@@ -7086,6 +7084,8 @@ var CanvasItem = function CanvasItem() {
   $traceurRuntime.setProperty(g.controllers, this.groupId, this);
   this.connections = [];
   this.connectionInProgress = null;
+  this.startZIndex = 0;
+  this.startPos = null;
 };
 ($traceurRuntime.createClass)(CanvasItem, {
   add: function(pos) {
@@ -7094,10 +7094,20 @@ var CanvasItem = function CanvasItem() {
   },
   dragMove: function(e) {
     e.target.setCoords();
+    this.dragStart(e);
     if (this.connections.length > 0)
       this.updateConnections();
     this.doConnection(e);
+    this.dragEnd();
   },
+  dragStart: function(e) {
+    if (!this.startPos) {
+      this.startPos = this.itemGroup.getCenterPoint();
+      this.startZIndex = g.canvas.getObjects().indexOf(this.itemGroup);
+      this.itemGroup.bringToFront();
+    }
+  },
+  dragEnd: function(e) {},
   doConnection: function(e) {
     var me = e.target;
     var intersecting = false;
@@ -7117,8 +7127,9 @@ var CanvasItem = function CanvasItem() {
       this.connectTo(intersecting);
     } else if (this.intersectionFound && intersecting === false) {
       this.intersectionFound = false;
-      if (this.connectionInProgress !== null)
+      if (this.connectionInProgress !== null) {
         this.connectionInProgress.cancel();
+      }
     }
   },
   updateConnections: function() {
@@ -7129,7 +7140,8 @@ var CanvasItem = function CanvasItem() {
   checkExistingConnections: function(node) {
     var status = false;
     for (var con = 0; con < this.connections.length; con++) {
-      if (this.connections[$traceurRuntime.toProperty(con)].connectTo === node) {
+      var conn = this.connections[$traceurRuntime.toProperty(con)];
+      if (conn.connectTo === node || conn.connectFrom === node) {
         status = true;
       }
     }
@@ -7142,12 +7154,24 @@ var CanvasItem = function CanvasItem() {
     }
   },
   afterConnect: function(connection) {
+    var self = this;
     this.intersectionFound = false;
     this.connectionInProgress = null;
+    this.itemGroup.animate({
+      left: this.startPos.x,
+      top: this.startPos.y
+    }, {
+      duration: 1000,
+      easing: fabric.util.ease.easeOutExpo,
+      onChange: g.canvas.renderAll.bind(g.canvas),
+      onComplete: function() {
+        this.startPos = null;
+        self.itemGroup.moveTo(self.startZIndex);
+      }
+    });
   },
   remove: function() {
-    g.removeFromIndex(this.itemGroup);
-    this.itemGroup.destroy();
+    this.itemGroup.remove();
   }
 }, {}, CanvasItemUtil);
 module.exports = CanvasItem;
@@ -7191,7 +7215,7 @@ module.exports = FlowLine;
 var g = require('../Globals');
 var _ = require('lodash');
 var indicatorProps = {
-  radius: 500,
+  radius: 300,
   opacity: 0.3,
   selectable: false,
   hasControls: false,
@@ -7203,31 +7227,39 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
   this.callback = cb;
   this.indicator = null;
   this.line = null;
-  console.log(this.connectTo);
+  this.cancelConnect = false;
 };
 ($traceurRuntime.createClass)(NodeConnection, {
   start: function() {
+    var self = this;
+    this.connectTo.setCoords();
+    var indPos = this.connectTo.getCenterPoint();
     this.indicator = new fabric.Circle(_.merge(indicatorProps, {
-      left: this.connectTo.getLeft(),
-      top: this.connectTo.getTop()
+      left: indPos.x,
+      top: indPos.y
     }));
     g.canvas.add(this.indicator);
     this.indicator.sendToBack();
     this.indicator.animate('radius', 100, {
       onChange: g.canvas.renderAll.bind(g.canvas),
       onComplete: this.connect.bind(this),
-      duration: 1000,
+      abort: function() {
+        return self.cancelConnect;
+      },
+      duration: 800,
       easing: fabric.util.ease.easeOutExpo
     });
   },
   cancel: function() {
     console.log("connection canceled...");
+    this.cancelConnect = true;
     if (this.indicator !== null)
       this.indicator.remove();
     g.canvas.renderAll();
   },
   connect: function() {
     console.log("connecting nodes...");
+    this.cancelConnect = false;
     this.indicator.remove();
     this.renderConnection();
     g.controllers[$traceurRuntime.toProperty(this.connectFrom.id)].connections.push(this);
@@ -7248,6 +7280,7 @@ var NodeConnection = function NodeConnection(node1, node2, cb) {
     g.canvas.renderAll();
   },
   buildLinePoints: function() {
+    this.connectFrom.setCoords();
     var n1Pos = this.connectFrom.getCenterPoint();
     var n2Pos = this.connectTo.getCenterPoint();
     var points = [n1Pos.x, n1Pos.y, n2Pos.x, n2Pos.y];
